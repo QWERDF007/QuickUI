@@ -1,0 +1,12 @@
+#pragma once
+
+#include <QtCore/QtGlobal>
+
+#if defined(@TARGET_NAME_UPPER@_STATIC_LIBS)
+#    define @TARGET_NAME_UPPER@_API
+#elif defined(@TARGET_NAME_UPPER@_BUILD_SHARED_LIBS)
+#    define @TARGET_NAME_UPPER@_API Q_DECL_EXPORT
+#else
+#    define @TARGET_NAME_UPPER@_API Q_DECL_IMPORT
+#endif
+
