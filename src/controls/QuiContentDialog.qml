@@ -8,14 +8,14 @@ QuiPopup {
     id: control
     property string title: ""
     property string message: ""
-    property string neutralText: "鍏抽棴"
-    property string negativeText: "鍙栨秷"
-    property string positiveText: "纭"
+    property string neutralText: "关闭"
+    property string negativeText: "取消"
+    property string positiveText: "确认"
     property bool useNeutralButton: false
     property bool useNegativeButton: true
     property bool usePositiveButton: true
     property int messageTextFormart: Text.AutoText
-    property var onNeutralClickListener // 鎸夐挳鐐瑰嚮鐩戝惉
+    property var onNeutralClickListener // 按钮点击监听
     property var onNegativeClickListener
     property var onPositiveClickListener
     signal neutralClicked
@@ -25,7 +25,7 @@ QuiPopup {
     implicitHeight: layout_content.height
     focus: true
 
-    property var contentDelegate: Component { // 榛樿鍐呭浠ｇ悊涓烘秷鎭? 鍙噸杞?
+    property var contentDelegate: Component { // 默认内容代理为消息，可重载
         Flickable {
             id:sroll_message
             contentHeight: text_message.height
@@ -37,7 +37,7 @@ QuiPopup {
             implicitHeight: message === "" ? 0 : Math.min(text_message.height,300)
 
             ScrollBar.vertical: QuiScrollBar {}
-            QuiText { // 娑堟伅
+            QuiText { // 消息
                 id: text_message
                 font: QuiFont.Body
                 wrapMode: Text.WrapAnywhere
@@ -50,7 +50,7 @@ QuiPopup {
             }
         }
     }
-    Item { // 鍐呭
+    Item { // 内容
         id:layout_content
         width: parent.width
         height: layout_column.childrenRect.height
@@ -58,7 +58,7 @@ QuiPopup {
             id:layout_column
             width: parent.width
             spacing: 0
-            QuiText { // 鏍囬
+            QuiText { // 标题
                 id:text_title
                 Layout.bottomMargin: 10
                 font: QuiFont.Title
@@ -68,7 +68,7 @@ QuiPopup {
                 rightPadding: 20
                 wrapMode: Text.WrapAnywhere
             }
-            QuiLoader { // 鍔犺浇鍐呭
+            QuiLoader { // 加载内容
                 sourceComponent: control.visible ? control.contentDelegate : undefined
                 Layout.fillWidth: true
                 onStatusChanged: {
@@ -79,7 +79,7 @@ QuiPopup {
                     }
                 }
             }
-            RowLayout{ // 鎿嶄綔鎸夐挳甯冨眬
+            RowLayout{ // 操作按钮布局
                 Layout.fillWidth: true
                 Layout.preferredHeight: 60
                 Layout.margins: 10
@@ -87,7 +87,7 @@ QuiPopup {
                 Item {
                     Layout.fillWidth: true
                 }
-                QuiButton { // 鍏抽棴鎸夐挳
+                QuiButton { // 关闭按钮
                     id:neutral_btn
                     visible: useNeutralButton
                     text: neutralText
@@ -100,7 +100,7 @@ QuiPopup {
                         }
                     }
                 }
-                QuiButton { // 鍙栨秷鎸夐挳
+                QuiButton { // 取消按钮
                     id: negative_btn
                     visible: useNegativeButton
                     text: negativeText
@@ -113,7 +113,7 @@ QuiPopup {
                         }
                     }
                 }
-                QuiButton { // 纭鎸夐挳
+                QuiButton { // 确认按钮
                     id:positive_btn
                     visible: usePositiveButton
                     text: positiveText

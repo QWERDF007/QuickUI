@@ -37,13 +37,13 @@ QuiPopup {
                 Layout.fillWidth: true
             }
             QuiButton {
-                text: "鍙栨秷"
+                text: "取消"
                 onClicked: {
                     control.close()
                 }
             }
             QuiButton {
-                text: "纭"
+                text: "确认"
                 onClicked: {
                     control.close()
                     editTextChanged(edit.text)

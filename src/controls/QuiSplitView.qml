@@ -14,7 +14,7 @@ SplitView {
 
     handle: Rectangle {
         id: handleDelegate
-        // 璁剧疆 width height 鏃犳硶姝ｅ父鏄剧ず
+        // 设置 width height 无法正常显示
 //        width: splitView.backgroundWidth
 //        height: splitView.backgroundHeight
         implicitWidth: splitView.backgroundWidth

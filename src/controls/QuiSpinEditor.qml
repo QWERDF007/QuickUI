@@ -7,7 +7,7 @@ import quickui
 Item {
     id: control
 
-    // 鍏叡灞炴€?
+    // 公共属性
     property string label: ""
     property real value: 0
     property real minValue: 0
@@ -16,10 +16,10 @@ Item {
     property int decimals: 0
     property bool enabled: true
 
-    // 淇″彿
+    // 信号
     signal editingFinished()
 
-    // 鍐呴儴鐘舵€?
+    // 内部状态
     property real _internalValue: value
 
     implicitWidth: 200
@@ -32,18 +32,18 @@ Item {
         }
     }
 
-    // 浣跨敤鎸囧畾鐨勫皬鏁颁綅鏁版牸寮忓寲鍊?
+    // 使用指定的小数位数格式化值
     function formatValue(val) {
         return val.toFixed(decimals)
     }
 
-    // 楠岃瘉骞跺皢鍊奸檺鍒跺湪鑼冨洿鍐?
+    // 验证并将值限制在范围内
     function clampValue(val) {
         if (isNaN(val)) return _internalValue
         return Math.max(minValue, Math.min(maxValue, val))
     }
 
-    // 搴旂敤鏂板€?
+    // 应用新值
     function applyValue(newVal) {
         var clamped = clampValue(newVal)
         if (clamped !== _internalValue) {
@@ -57,7 +57,7 @@ Item {
         anchors.fill: parent
         spacing: 4
 
-        // 鏍囩
+        // 标签
         QuiText {
             id: labelText
             text: control.label
@@ -66,7 +66,7 @@ Item {
             opacity: control.enabled ? 1 : 0.5
         }
 
-        // 甯︽寜閽殑杈撳叆妗?
+        // 带按钮的输入框
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -82,7 +82,7 @@ Item {
                     anchors.margins: 2
                     spacing: 0
 
-                    // 鍑忓彿鎸夐挳
+                    // 减号按钮
                     QuiTextIconButton {
                         id: minusBtn
                         Layout.preferredWidth: 24
@@ -100,7 +100,7 @@ Item {
                         }
                     }
 
-                    // 鏂囨湰杈撳叆
+                    // 文本输入
                     TextInput {
                         id: textInput
                         Layout.fillWidth: true
@@ -136,7 +136,7 @@ Item {
                         }
                     }
 
-                    // 鍔犲彿鎸夐挳
+                    // 加号按钮
                     QuiTextIconButton {
                         id: plusBtn
                         Layout.preferredWidth: 24
@@ -155,7 +155,7 @@ Item {
                     }
                 }
 
-                // 鑱氱劍鏃跺簳閮ㄩ珮浜嚎
+                // 聚焦时底部高亮线
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width

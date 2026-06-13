@@ -15,7 +15,7 @@ endif()
 option(QUICKUI_BUILD_TESTS "Enable testsuite" OFF)
 option(QUICKUI_BUILD_DOCS "Build docs" OFF)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(ConfigBuildTree)
 include(ConfigCompiler)
