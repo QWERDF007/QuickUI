@@ -1,17 +1,17 @@
 include(CMakePackageConfigHelpers)
 
-function(_quickui_set_output_directories target runtime_dir archive_dir)
+function(_quickui_set_output_directories target runtime_dir library_dir archive_dir)
     set_target_properties(${target} PROPERTIES
         DEBUG_POSTFIX ""
         RUNTIME_OUTPUT_DIRECTORY "${runtime_dir}"
-        LIBRARY_OUTPUT_DIRECTORY "${runtime_dir}"
+        LIBRARY_OUTPUT_DIRECTORY "${library_dir}"
         ARCHIVE_OUTPUT_DIRECTORY "${archive_dir}"
     )
 
     foreach(config DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
         set_target_properties(${target} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY_${config} "${runtime_dir}"
-            LIBRARY_OUTPUT_DIRECTORY_${config} "${runtime_dir}"
+            LIBRARY_OUTPUT_DIRECTORY_${config} "${library_dir}"
             ARCHIVE_OUTPUT_DIRECTORY_${config} "${archive_dir}"
         )
     endforeach()
@@ -157,9 +157,15 @@ function(quickui_add_qml_plugin)
             ${ARG_PRIVATE_LIBS}
     )
 
-    _quickui_set_output_directories(${ARG_TARGET} "${_qml_output_dir}" "${CMAKE_BINARY_DIR}/lib")
+    set(_runtime_output_dir "${CMAKE_BINARY_DIR}/bin")
+    set(_plugin_library_output_dir "${_qml_output_dir}")
+    if(WIN32)
+        set(_plugin_library_output_dir "${_runtime_output_dir}")
+    endif()
+
+    _quickui_set_output_directories(${ARG_TARGET} "${_runtime_output_dir}" "${_qml_output_dir}" "${CMAKE_BINARY_DIR}/lib")
     if(TARGET ${ARG_PLUGIN_TARGET})
-        _quickui_set_output_directories(${ARG_PLUGIN_TARGET} "${_qml_output_dir}" "${CMAKE_BINARY_DIR}/lib")
+        _quickui_set_output_directories(${ARG_PLUGIN_TARGET} "${_runtime_output_dir}" "${_plugin_library_output_dir}" "${CMAKE_BINARY_DIR}/lib")
     endif()
 
     if(COMMAND setup_dso)

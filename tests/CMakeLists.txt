@@ -1,4 +1,4 @@
-set(QUICKUI_TEST_RUNTIME_DIR "${QUICKUI_QML_BUILD_IMPORT_DIR}/quickui")
+set(QUICKUI_TEST_RUNTIME_DIR "${CMAKE_BINARY_DIR}/bin")
 
 function(quickui_add_test target)
     if(TARGET quickuiplugin)
@@ -26,6 +26,7 @@ function(quickui_add_test target)
 
     if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.22)
         set(_env_mod "PATH=path_list_prepend:${QUICKUI_TEST_RUNTIME_DIR}")
+        list(APPEND _env_mod "PATH=path_list_prepend:${QUICKUI_QML_BUILD_IMPORT_DIR}/quickui")
         if(Qt6_ROOT)
             list(APPEND _env_mod "PATH=path_list_prepend:${Qt6_ROOT}/bin")
         endif()
