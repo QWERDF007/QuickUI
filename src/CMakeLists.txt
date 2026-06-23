@@ -2,7 +2,7 @@ quickui_add_qml_plugin(
     TARGET quickui
     URI quickui
     VERSION 1.0
-    PLUGIN_TARGET quickuiplugin
+    PLUGIN_TARGET quickui
     CLASS_NAME QuickUiPlugin
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
     INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include"

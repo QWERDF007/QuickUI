@@ -2,7 +2,7 @@ include(CMakePackageConfigHelpers)
 
 function(_quickui_set_output_directories target runtime_dir library_dir archive_dir)
     set_target_properties(${target} PROPERTIES
-        DEBUG_POSTFIX ""
+        DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}"
         RUNTIME_OUTPUT_DIRECTORY "${runtime_dir}"
         LIBRARY_OUTPUT_DIRECTORY "${library_dir}"
         ARCHIVE_OUTPUT_DIRECTORY "${archive_dir}"
@@ -173,7 +173,7 @@ function(quickui_add_qml_plugin)
     endif()
 
     set(_install_targets ${ARG_TARGET})
-    if(TARGET ${ARG_PLUGIN_TARGET})
+    if(TARGET ${ARG_PLUGIN_TARGET} AND NOT ARG_PLUGIN_TARGET STREQUAL ARG_TARGET)
         list(APPEND _install_targets ${ARG_PLUGIN_TARGET})
     endif()
 

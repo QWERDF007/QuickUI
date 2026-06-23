@@ -1,8 +1,8 @@
 set(QUICKUI_TEST_RUNTIME_DIR "${CMAKE_BINARY_DIR}/bin")
 
 function(quickui_add_test target)
-    if(TARGET quickuiplugin)
-        add_dependencies(${target} quickuiplugin)
+    if(TARGET quickui)
+        add_dependencies(${target} quickui)
     endif()
 
     set_target_properties(${target} PROPERTIES
