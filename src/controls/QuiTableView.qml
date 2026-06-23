@@ -59,9 +59,13 @@ Rectangle {
         id: d
         property var columnWidths: ({})
         property int columnWidthRevision: 0
+        property bool destroying: false
     }
 
     function forceLayout() {
+        if (d.destroying) {
+            return
+        }
         table_view.forceLayout()
         header_horizontal.forceLayout()
         header_vertical.forceLayout()
@@ -82,6 +86,9 @@ Rectangle {
 
     function columnWidth(column) {
         d.columnWidthRevision
+        if (d.destroying) {
+            return defaultColumnWidth
+        }
         if (d.columnWidths[column] !== undefined) {
             return d.columnWidths[column]
         }
@@ -101,6 +108,9 @@ Rectangle {
     }
 
     function currentRowHeight(row) {
+        if (d.destroying) {
+            return rowHeight
+        }
         if (rowHeightProvider) {
             let height = rowHeightProvider(row)
             if (height > 0) {
@@ -142,6 +152,9 @@ Rectangle {
 
     function frozenColumnIndexes() {
         d.columnWidthRevision
+        if (d.destroying) {
+            return []
+        }
         let count = table_view.columns
         let result = []
         for (let column = 0; column < count; ++column) {
@@ -153,6 +166,9 @@ Rectangle {
     }
 
     function frozenColumnsWidth() {
+        if (d.destroying) {
+            return 0
+        }
         let width = 0
         let columns = frozenColumnIndexes()
         for (let i = 0; i < columns.length; ++i) {
@@ -174,6 +190,9 @@ Rectangle {
     }
 
     function columnOffset(column) {
+        if (d.destroying) {
+            return 0
+        }
         let x = 0
         for (let i = 0; i < column; ++i) {
             x += columnWidth(i) + table_view.columnSpacing
@@ -182,10 +201,20 @@ Rectangle {
     }
 
     function columnVisualX(column) {
+        if (d.destroying) {
+            return 0
+        }
         if (isFrozenColumn(column)) {
             return frozenColumnX(column)
         }
         return columnOffset(column) - table_view.contentX
+    }
+
+    Component.onDestruction: {
+        d.destroying = true
+        header_horizontal.syncView = null
+        header_vertical.syncView = null
+        table_view.model = null
     }
 
     function headerDisplayText(value, modelObject) {
@@ -278,10 +307,14 @@ Rectangle {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         columnSpacing: table_view.columnSpacing
-        syncView: table_view
+        syncView: d.destroying ? null : table_view
         delegate: control.headerDelegate
 
-        onContentXChanged: Qt.callLater(control.forceLayout)
+        onContentXChanged: {
+            if (!d.destroying) {
+                Qt.callLater(control.forceLayout)
+            }
+        }
     }
 
     VerticalHeaderView {
@@ -295,10 +328,14 @@ Rectangle {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         rowSpacing: table_view.rowSpacing
-        syncView: table_view
+        syncView: d.destroying ? null : table_view
         delegate: control.verticalHeaderDelegate
 
-        onContentYChanged: Qt.callLater(control.forceLayout)
+        onContentYChanged: {
+            if (!d.destroying) {
+                Qt.callLater(control.forceLayout)
+            }
+        }
     }
 
     TableView {
@@ -321,10 +358,26 @@ Rectangle {
         ScrollBar.horizontal: QuiScrollBar {}
         ScrollBar.vertical: QuiScrollBar {}
 
-        onWidthChanged: Qt.callLater(control.forceLayout)
-        onHeightChanged: Qt.callLater(control.forceLayout)
-        onRowsChanged: Qt.callLater(control.forceLayout)
-        onColumnsChanged: Qt.callLater(control.forceLayout)
+        onWidthChanged: {
+            if (!d.destroying) {
+                Qt.callLater(control.forceLayout)
+            }
+        }
+        onHeightChanged: {
+            if (!d.destroying) {
+                Qt.callLater(control.forceLayout)
+            }
+        }
+        onRowsChanged: {
+            if (!d.destroying) {
+                Qt.callLater(control.forceLayout)
+            }
+        }
+        onColumnsChanged: {
+            if (!d.destroying) {
+                Qt.callLater(control.forceLayout)
+            }
+        }
     }
 
     Item {
@@ -338,7 +391,7 @@ Rectangle {
         z: 10
 
         Repeater {
-            model: control.frozenColumnIndexes()
+            model: d.destroying ? [] : control.frozenColumnIndexes()
 
             Item {
                 id: frozen_column_item
@@ -361,7 +414,7 @@ Rectangle {
                     boundsBehavior: Flickable.StopAtBounds
                     interactive: false
                     columnSpacing: table_view.columnSpacing
-                    syncView: frozen_table
+                    syncView: d.destroying ? null : frozen_table
                     delegate: control.headerDelegate
                 }
 
@@ -375,15 +428,15 @@ Rectangle {
                     clip: true
                     interactive: false
                     boundsBehavior: Flickable.StopAtBounds
-                    syncView: table_view
+                    syncView: d.destroying ? null : table_view
                     syncDirection: Qt.Vertical
-                    model: table_view.model
-                    delegate: table_view.delegate
+                    model: d.destroying ? null : table_view.model
+                    delegate: d.destroying ? null : table_view.delegate
                     columnSpacing: table_view.columnSpacing
                     rowSpacing: table_view.rowSpacing
                     contentX: control.columnOffset(sourceColumn)
-                    columnWidthProvider: table_view.columnWidthProvider
-                    rowHeightProvider: table_view.rowHeightProvider
+                    columnWidthProvider: d.destroying ? undefined : table_view.columnWidthProvider
+                    rowHeightProvider: d.destroying ? undefined : table_view.rowHeightProvider
                 }
 
                 Rectangle {
@@ -397,8 +450,10 @@ Rectangle {
                 Connections {
                     target: control
                     function onLayoutRequested() {
-                        frozen_table.forceLayout()
-                        frozen_header.forceLayout()
+                        if (!d.destroying) {
+                            frozen_table.forceLayout()
+                            frozen_header.forceLayout()
+                        }
                     }
                 }
             }
@@ -424,7 +479,7 @@ Rectangle {
         z: 30
 
         Repeater {
-            model: table_view.columns
+            model: d.destroying ? 0 : table_view.columns
 
             MouseArea {
                 id: resize_handle
