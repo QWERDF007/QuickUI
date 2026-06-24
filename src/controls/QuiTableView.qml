@@ -35,6 +35,7 @@ Rectangle {
     property bool horizonalHeaderVisible: true
     property bool verticalHeaderVisible: false
     property bool resizableColumns: true
+    property bool fitColumnsToWidth: false
     property int startRowIndex: 1
     property real defaultColumnWidth: 100
     property real minimumColumnWidth: 40
@@ -89,22 +90,116 @@ Rectangle {
         if (d.destroying) {
             return defaultColumnWidth
         }
+
+        if (fitColumnsToWidth) {
+            return fittedColumnWidth(column)
+        }
+
+        return baseColumnWidth(column)
+    }
+
+    function baseColumnWidth(column) {
+        if (d.destroying) {
+            return defaultColumnWidth
+        }
         if (d.columnWidths[column] !== undefined) {
-            return d.columnWidths[column]
+            return clampColumnWidth(column, d.columnWidths[column])
         }
 
         let options = columnOptions(column)
         if (options.width > 0) {
-            return options.width
+            return clampColumnWidth(column, options.width)
         }
 
         if (columnWidthProvider) {
             let width = columnWidthProvider(column)
             if (width > 0) {
-                return width
+                return clampColumnWidth(column, width)
             }
         }
-        return defaultColumnWidth
+        return clampColumnWidth(column, defaultColumnWidth)
+    }
+
+    function clampColumnWidth(column, width) {
+        return Math.min(Math.max(width, columnMinimumWidth(column)), columnMaximumWidth(column))
+    }
+
+    function columnStretchEnabled(column) {
+        return columnOptions(column).stretch !== false
+    }
+
+    function columnStretchFactor(column) {
+        let factor = columnOptions(column).stretchFactor
+        return factor > 0 ? factor : 1
+    }
+
+    function availableColumnsWidth() {
+        let count = table_view.columns
+        if (count <= 0) {
+            return 0
+        }
+        let spacing = Math.max(0, count - 1) * table_view.columnSpacing
+        return Math.max(0, table_view.width - spacing)
+    }
+
+    function fittedColumnWidth(column) {
+        let count = table_view.columns
+        if (column < 0 || column >= count) {
+            return defaultColumnWidth
+        }
+        if (count <= 0) {
+            return defaultColumnWidth
+        }
+
+        let available = availableColumnsWidth()
+        if (available <= 0) {
+            return 1
+        }
+
+        let widths = []
+        let minimums = []
+        let totalWidth = 0
+        let totalMinimum = 0
+        let stretchFactorTotal = 0
+        let shrinkCapacityTotal = 0
+
+        for (let i = 0; i < count; ++i) {
+            let width = baseColumnWidth(i)
+            let minimum = columnMinimumWidth(i)
+            widths.push(width)
+            minimums.push(minimum)
+            totalWidth += width
+            totalMinimum += minimum
+            if (columnStretchEnabled(i)) {
+                stretchFactorTotal += columnStretchFactor(i)
+            }
+            shrinkCapacityTotal += Math.max(0, width - minimum)
+        }
+
+        if (Math.abs(totalWidth - available) < 0.5) {
+            return widths[column]
+        }
+
+        if (totalMinimum > available) {
+            let scaledMinimum = minimums[column] * available / totalMinimum
+            return Math.max(1, scaledMinimum)
+        }
+
+        if (totalWidth < available) {
+            if (!columnStretchEnabled(column) || stretchFactorTotal <= 0) {
+                return widths[column]
+            }
+            let extra = available - totalWidth
+            return widths[column] + extra * columnStretchFactor(column) / stretchFactorTotal
+        }
+
+        if (shrinkCapacityTotal <= 0) {
+            return widths[column]
+        }
+
+        let deficit = totalWidth - available
+        let capacity = Math.max(0, widths[column] - minimums[column])
+        return widths[column] - Math.min(capacity, deficit * capacity / shrinkCapacityTotal)
     }
 
     function currentRowHeight(row) {
@@ -137,13 +232,31 @@ Rectangle {
 
     function setColumnWidth(column, width) {
         let minimumWidth = columnMinimumWidth(column)
-        let maximumWidth = columnMaximumWidth(column)
+        let maximumWidth = fitColumnsToWidth ? columnResizeMaximumWidth(column) : columnMaximumWidth(column)
         let adjustedWidth = Math.min(Math.max(width, minimumWidth), maximumWidth)
         let widths = Object.assign({}, d.columnWidths)
         widths[column] = adjustedWidth
         d.columnWidths = widths
         d.columnWidthRevision += 1
         Qt.callLater(forceLayout)
+    }
+
+    function columnResizeMaximumWidth(column) {
+        let maximumWidth = columnMaximumWidth(column)
+        let count = table_view.columns
+        if (count <= 0) {
+            return maximumWidth
+        }
+
+        let available = availableColumnsWidth()
+        for (let i = 0; i < count; ++i) {
+            if (i === column) {
+                continue
+            }
+            available -= columnMinimumWidth(i)
+        }
+
+        return Math.max(columnMinimumWidth(column), Math.min(maximumWidth, available))
     }
 
     function isFrozenColumn(column) {
