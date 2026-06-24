@@ -113,9 +113,9 @@ function(quickui_add_qml_plugin)
     endif()
 
     if(ARG_STATIC)
-        qt_add_library(${ARG_TARGET} STATIC)
+        qt_add_library(${ARG_TARGET} STATIC ${_sources} ${_public_headers})
     else()
-        qt_add_library(${ARG_TARGET} SHARED)
+        qt_add_library(${ARG_TARGET} SHARED ${_sources} ${_public_headers})
     endif()
 
     qt_add_qml_module(${ARG_TARGET}
@@ -126,7 +126,7 @@ function(quickui_add_qml_plugin)
         OUTPUT_DIRECTORY "${_qml_output_dir}"
         RESOURCE_PREFIX /qt/qml
         QML_FILES ${_qml_files}
-        SOURCES ${_sources} ${_public_headers}
+        SOURCES ${_sources}
     )
 
     if(NOT TARGET ${PROJECT_NAME}::${ARG_TARGET})
@@ -142,6 +142,7 @@ function(quickui_add_qml_plugin)
     target_include_directories(${ARG_TARGET}
         PUBLIC
             $<BUILD_INTERFACE:${ARG_INCLUDE_DIR}>
+            $<BUILD_INTERFACE:${ARG_INCLUDE_DIR}/${ARG_TARGET}>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
 
