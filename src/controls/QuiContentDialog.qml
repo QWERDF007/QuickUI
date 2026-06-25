@@ -25,6 +25,8 @@ QuiPopup {
     implicitHeight: layout_content.height
     focus: true
 
+    onOpened: positive_btn.forceActiveFocus()
+
     property var contentDelegate: Component { // 默认内容代理为消息，可重载
         Flickable {
             id:sroll_message
