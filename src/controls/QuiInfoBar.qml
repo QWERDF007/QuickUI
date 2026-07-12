@@ -105,39 +105,45 @@ Item {
     function backgroundColor(type) {
         switch (type) {
         case successType:
-            return Qt.rgba(57 / 255, 61 / 255, 27 / 255, 1)
+            return Qt.rgba(223/255,246/255,221/255,1)
         case warningType:
-            return Qt.rgba(67 / 255, 53 / 255, 25 / 255, 1)
+            return Qt.rgba(255/255,244/255,206/255,1)
         case errorType:
-            return Qt.rgba(68 / 255, 39 / 255, 38 / 255, 1)
+            return Qt.rgba(253/255,231/255,233/255,1)
+        case infoType:
+            return Qt.rgba(244/255,244/255,244/255,1)
         default:
-            return Qt.rgba(39 / 255, 39 / 255, 39 / 255, 1)
+            return Qt.rgba(1,1,1,1)
         }
     }
 
     function borderColor(type) {
         switch (type) {
         case successType:
-            return Qt.rgba(86 / 255, 94 / 255, 39 / 255, 1)
+            return Qt.rgba(210/255,232/255,208/255,1)
         case warningType:
-            return Qt.rgba(92 / 255, 73 / 255, 35 / 255, 1)
+            return Qt.rgba(240/255,230/255,194/255,1)
         case errorType:
-            return Qt.rgba(95 / 255, 48 / 255, 47 / 255, 1)
+            return Qt.rgba(238/255,217/255,219/255,1)
+        case infoType:
+            return Qt.rgba(230/255,230/255,230/255,1)
         default:
-            return Qt.rgba(65 / 255, 65 / 255, 65 / 255, 1)
+            return Qt.rgba(1,1,1,1)
         }
     }
 
     function iconColor(type) {
         switch (type) {
         case successType:
-            return Qt.rgba(108 / 255, 203 / 255, 95 / 255, 1)
+            return Qt.rgba(15/255,123/255,15/255,1)
         case warningType:
-            return Qt.rgba(252 / 255, 225 / 255, 0, 1)
+            return Qt.rgba(157/255,93/255,0/255,1)
         case errorType:
-            return Qt.rgba(255 / 255, 153 / 255, 164 / 255, 1)
+            return Qt.rgba(196/255,43/255,28/255,1)
+        case infoType:
+            return Qt.rgba(0/255,102/255,180/255,1)
         default:
-            return QuiColor.Highlight
+            return Qt.rgba(1,1,1,1)
         }
     }
 
@@ -270,7 +276,7 @@ Item {
                                 width: parent.width
                                 text: owner.title
                                 wrapMode: Text.WordWrap
-                                color: QuiColor.FontPrimary
+                                color: Qt.rgba(7 / 255, 7 / 255, 7 / 255, 1)
                             }
 
                             QuiText {
@@ -279,7 +285,7 @@ Item {
                                 text: owner.message
                                 visible: text.length > 0
                                 wrapMode: Text.WordWrap
-                                color: QuiColor.FontDark
+                                color: Qt.rgba(7 / 255, 7 / 255, 7 / 255, 1)
                             }
                         }
 
@@ -291,9 +297,9 @@ Item {
                             iconSize: 10
                             iconSource: QuiFontIcon.ChromeClose
                             normalColor: QuiColor.Transparent
-                            hoverColor: Qt.rgba(1, 1, 1, 0.08)
-                            pressedColor: Qt.rgba(1, 1, 1, 0.14)
-                            iconColor: QuiColor.FontDark
+                            hoverColor: Qt.rgba(0, 0, 0, 0.03)
+                            pressedColor: Qt.rgba(0, 0, 0, 0.06)
+                            iconColor: Qt.rgba(97 / 255, 97 / 255, 97 / 255, 1)
                             text: "关闭"
                             onClicked: owner.close()
                         }
