@@ -27,6 +27,25 @@ Item {
             button.enabled = false
             compare(button.opacity, 0.3)
         }
+
+        function test_enterKeysTriggerClick() {
+            const button = createTemporaryObject(buttonComponent, root)
+            verify(button !== null)
+
+            let clickCount = 0
+            button.clicked.connect(function() {
+                clickCount += 1
+            })
+            button.forceActiveFocus()
+            tryCompare(button, "activeFocus", true)
+
+            keyPress(Qt.Key_Return)
+            compare(clickCount, 1)
+            verify(button.checked)
+            keyPress(Qt.Key_Enter)
+            compare(clickCount, 2)
+            verify(!button.checked)
+        }
     }
 }
 

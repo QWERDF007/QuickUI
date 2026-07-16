@@ -40,6 +40,16 @@ Button {
         //     radius: 4
         // }
     }
+    function activateFromKeyboard(event) {
+        if (!control.enabled)
+            return
+        if (control.checkable)
+            control.toggle()
+        control.clicked()
+        event.accepted = true
+    }
+    Keys.onEnterPressed: (event) => control.activateFromKeyboard(event)
+    Keys.onReturnPressed: (event) => control.activateFromKeyboard(event)
     contentItem: QuiText {
         text: control.text
         horizontalAlignment: Text.AlignHCenter
