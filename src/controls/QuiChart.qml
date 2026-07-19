@@ -24,11 +24,6 @@ Canvas {
         return datasets.length > 0 && datasets[0] ? datasets[0] : ({})
     }
 
-    function labelAt(index) {
-        var labels = control.chartData && control.chartData.labels ? control.chartData.labels : []
-        return index >= 0 && index < labels.length ? String(labels[index]) : ""
-    }
-
     function valueAt(index) {
         var values = chartDataset().data || []
         if (index < 0 || index >= values.length)
@@ -42,6 +37,11 @@ Canvas {
         if (index >= 0 && index < colors.length && colors[index])
             return colors[index]
         return control.defaultColors[index % control.defaultColors.length]
+    }
+
+    function tooltipAt(index) {
+        var tooltips = chartDataset().tooltips || []
+        return index >= 0 && index < tooltips.length ? String(tooltips[index]) : ""
     }
 
     function totalValue() {
@@ -240,29 +240,15 @@ Canvas {
         color: QuiColor.FontDark
     }
 
-    Rectangle {
+    QuiToolTip {
         visible: control.hoveredIndex >= 0
+                 && control.tooltipAt(control.hoveredIndex).length > 0
         z: 10
         width: 178
-        height: 49
+        delay: 0
         x: Math.max(4, Math.min(control.width - width - 4, control.tooltipX + 8))
         y: Math.max(4, Math.min(control.height - height - 4, control.tooltipY + 8))
-        radius: 3
-        color: QuiColor.ToolTip
-        border.color: QuiColor.Border
-
-        QuiText {
-            anchors.fill: parent
-            anchors.margins: 6
-            text: control.hoveredIndex >= 0
-                  ? qsTr("%1\n数量：%2")
-                    .arg(control.labelAt(control.hoveredIndex))
-                    .arg(Math.round(control.valueAt(control.hoveredIndex)).toLocaleString())
-                  : ""
-            color: QuiColor.FontPrimary
-            font: QuiFont.Caption
-            wrapMode: Text.Wrap
-        }
+        text: control.tooltipAt(control.hoveredIndex)
     }
 
     PropertyAnimation {
