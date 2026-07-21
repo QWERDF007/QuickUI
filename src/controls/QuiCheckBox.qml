@@ -27,6 +27,7 @@ T.CheckBox {
     property bool animationEnabled: true
     property var clickListener: function () {}
     id: control
+    opacity: control.enabled ? 1.0 : 0.3
     leftPadding: 3
     rightPadding: 3
     implicitWidth: Math.max(implicitContentWidth, implicitIndicatorWidth) + leftPadding + rightPadding
