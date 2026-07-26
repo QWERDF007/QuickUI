@@ -103,14 +103,15 @@ Item {
         z: -999
         clip: true
 
-        Rectangle {
+        Item {
             id: container
             anchors.fill: parent
-            radius: 4
-            clip: true
-            color: QuiColor.Primary
-            border.color: QuiColor.Border
             anchors.topMargin: -contentHeight
+            clip: true
+            // radius: 4
+            // color: QuiColor.Primary
+            // border.color: QuiColor.Border
+            
 
             states: [
                 State {
