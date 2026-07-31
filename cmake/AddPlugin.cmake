@@ -98,6 +98,20 @@ function(quickui_add_qml_plugin)
         "${ARG_QML_DIR}/*.qml"
     )
 
+    # JavaScript files imported by QML components must be part of the QML
+    # module resources as well.  Keeping them in the same source glob makes
+    # relative imports work in both the build tree and installed modules.
+    file(GLOB_RECURSE _qml_js_files CONFIGURE_DEPENDS
+        "${ARG_SOURCE_DIR}/*.js"
+    )
+    foreach(_qml_js_file IN LISTS _qml_js_files)
+        file(RELATIVE_PATH _qml_js_alias "${ARG_SOURCE_DIR}" "${_qml_js_file}")
+        set_source_files_properties("${_qml_js_file}" PROPERTIES
+            QT_RESOURCE_ALIAS "${_qml_js_alias}"
+            QT_QML_SKIP_QMLDIR_ENTRY TRUE
+        )
+    endforeach()
+
     foreach(_qml_file IN LISTS _qml_files)
         get_filename_component(_qml_alias "${_qml_file}" NAME)
         set_source_files_properties("${_qml_file}" PROPERTIES QT_RESOURCE_ALIAS "${_qml_alias}")
@@ -128,6 +142,23 @@ function(quickui_add_qml_plugin)
         QML_FILES ${_qml_files}
         SOURCES ${_sources}
     )
+
+    # The QML files live in the module directory, while scripts under the
+    # source root (for example src/JS/Chart.js) are imported with a relative
+    # "../JS/..." URL.  Add those scripts at the resource root so the URL is
+    # valid in both the qrc build and an installed module.
+    if(_qml_js_files)
+        get_target_property(_qml_resource_prefix ${ARG_TARGET} QT_QML_MODULE_RESOURCE_PREFIX)
+        get_target_property(_qml_target_path ${ARG_TARGET} QT_QML_MODULE_TARGET_PATH)
+        string(REGEX REPLACE "/${_qml_target_path}$" "" _qml_root_prefix "${_qml_resource_prefix}")
+        if(_qml_root_prefix STREQUAL "")
+            set(_qml_root_prefix "/")
+        endif()
+        qt_target_qml_sources(${ARG_TARGET}
+            PREFIX "${_qml_root_prefix}"
+            QML_FILES ${_qml_js_files}
+        )
+    endif()
 
     if(NOT TARGET ${PROJECT_NAME}::${ARG_TARGET})
         add_library(${PROJECT_NAME}::${ARG_TARGET} ALIAS ${ARG_TARGET})

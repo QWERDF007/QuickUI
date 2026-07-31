@@ -1,264 +1,334 @@
 import QtQuick
 
+import "../JS/Chart.js" as Chart
 import quickui
 
+/*
+ * A QML adapter for the Chart.js QML build.
+ *
+ * QuiChart deliberately keeps the Chart.js data/configuration contract instead
+ * of knowing anything about a particular domain.  Any chart type registered by
+ * Chart.js (line, bar, pie, doughnut, radar, ...) can therefore be selected by
+ * changing chartType and supplying the corresponding chartData/chartOptions.
+ */
 Canvas {
     id: control
 
-    // FluentUI-compatible chart interface.
+    // Chart.js configuration surface.
     property string chartType: "pie"
     property var chartData: ({ labels: [], datasets: [] })
     property var chartOptions: ({})
+
+    // The QML animation drives Chart.js' draw(easing) method.  Chart.js' own
+    // animation scheduler is disabled by chartOptionsForChart() below because
+    // it cannot schedule frames for a QML Canvas.
     property real chartAnimationProgress: 0.1
     property int animationEasingType: Easing.InOutExpo
     property real animationDuration: 300
     property alias animationRunning: chartAnimator.running
-    property int hoveredIndex: -1
-    property real tooltipX: 0
-    property real tooltipY: 0
+
+    // Interaction is kept at the adapter level so chart-specific event
+    // handling remains in Chart.js options (onClick/onHover/etc.).
+    property bool interactive: true
+
+    // Empty-state rendering is generic and can be disabled or replaced by a
+    // consumer that wants to provide its own placeholder.
+    property bool showEmptyState: true
+    property string emptyText: qsTr("暂无数据")
+
+    readonly property var chartInstance: d.jsChart
+    readonly property bool chartReady: d.jsChart !== null && !d.recreatePending
 
     signal animationFinished()
+    signal chartCreated(var chart)
+    signal chartUpdated()
+    signal chartDestroyed()
+    signal chartError(string message)
 
-    function chartDataset() {
-        var datasets = control.chartData && control.chartData.datasets ? control.chartData.datasets : []
-        return datasets.length > 0 && datasets[0] ? datasets[0] : ({})
+    QtObject {
+        id: d
+
+        property var jsChart: null
+        property var memorizedContext: null
+        property var memorizedData: null
+        property var memorizedOptions: null
+        property string memorizedType: ""
+        property bool recreatePending: true
+        property bool updatePending: true
+        property string lastError: ""
     }
 
-    function valueAt(index) {
-        var values = chartDataset().data || []
-        if (index < 0 || index >= values.length)
-            return 0
-        var value = Number(values[index])
-        return isFinite(value) && value > 0 ? value : 0
+    function copyObject(source) {
+        var result = ({})
+        if (!source || typeof source !== "object")
+            return result
+
+        for (var key in source)
+            result[key] = source[key]
+        return result
     }
 
-    function colorAt(index) {
-        var colors = chartDataset().backgroundColor || []
-        if (index >= 0 && index < colors.length && colors[index])
-            return colors[index]
-        return control.defaultColors[index % control.defaultColors.length]
+    function chartDataForChart() {
+        if (control.chartData && typeof control.chartData === "object")
+            return control.chartData
+        return ({ labels: [], datasets: [] })
     }
 
-    function tooltipAt(index) {
-        var tooltips = chartDataset().tooltips || []
-        return index >= 0 && index < tooltips.length ? String(tooltips[index]) : ""
+    function chartOptionsForChart() {
+        var options = control.copyObject(control.chartOptions)
+        var animation = control.copyObject(options.animation)
+
+        // The QML PropertyAnimation below is the single frame scheduler.  A
+        // zero Chart.js duration keeps update() synchronous and prevents an
+        // inaccessible browser animation loop from competing with it.
+        animation.duration = 0
+        options.animation = animation
+        return options
     }
 
-    function totalValue() {
-        var values = chartDataset().data || []
-        var total = 0
-        for (var i = 0; i < values.length; ++i)
-            total += control.valueAt(i)
-        return total
+    function hasData() {
+        var data = control.chartData
+        var datasets = data && data.datasets ? data.datasets : []
+        for (var i = 0; i < datasets.length; ++i) {
+            var values = datasets[i] && datasets[i].data ? datasets[i].data : []
+            if (values.length > 0)
+                return true
+        }
+        return false
     }
 
-    function sliceCount() {
-        var labels = control.chartData && control.chartData.labels ? control.chartData.labels : []
-        var values = chartDataset().data || []
-        return Math.min(labels.length, values.length)
+    function reportError(error) {
+        var message = String(error)
+        if (message === d.lastError)
+            return
+        d.lastError = message
+        control.chartError(message)
     }
 
-    function titleText() {
-        var title = control.chartOptions && control.chartOptions.title
-                       ? control.chartOptions.title
-                       : ({})
-        return title.display && title.text ? String(title.text) : ""
+    function clearError() {
+        d.lastError = ""
     }
 
-    function titleHeight() {
-        return control.titleText().length > 0 ? 26 : 0
+    function destroyChart() {
+        var chart = d.jsChart
+        d.jsChart = null
+        d.memorizedContext = null
+        d.memorizedData = null
+        d.memorizedOptions = null
+        d.memorizedType = ""
+        d.recreatePending = true
+        d.updatePending = false
+        event.handler = undefined
+
+        if (!chart)
+            return
+
+        try {
+            chart.destroy()
+        } catch (error) {
+            reportError(error)
+        }
+        control.chartDestroyed()
     }
 
-    function chartRotation() {
-        var value = control.chartOptions ? Number(control.chartOptions.rotation) : NaN
-        return isFinite(value) ? value : -Math.PI / 2
-    }
+    function createChart(context) {
+        // A context can change when the Canvas is recreated, so release all
+        // resources associated with the previous Chart.js instance first.
+        control.destroyChart()
 
-    function cutoutPercentage() {
-        if (control.chartType !== "doughnut")
-            return 0
-        var value = control.chartOptions ? Number(control.chartOptions.cutoutPercentage) : NaN
-        return isFinite(value) ? Math.max(0, Math.min(95, value)) : 50
-    }
+        var chart = null
+        try {
+            chart = Chart.build(context, {
+                type: control.chartType || "line",
+                data: control.chartDataForChart(),
+                options: control.chartOptionsForChart()
+            })
 
-    function plotGeometry() {
-        var top = control.titleHeight()
-        var plotHeight = Math.max(0, control.height - top)
-        var radius = Math.max(0, Math.min(control.width, plotHeight) / 2 - 8)
-        return {
-            centerX: control.width / 2,
-            centerY: top + plotHeight / 2,
-            radius: radius
+            if (!chart || !chart.ctx)
+                throw new Error("Chart.js could not acquire the Canvas 2D context")
+
+            d.jsChart = chart
+            d.jsChart.bindEvents(function(newHandler) {
+                event.handler = newHandler
+            })
+
+            d.memorizedContext = context
+            d.memorizedData = control.chartData
+            d.memorizedOptions = control.chartOptions
+            d.memorizedType = control.chartType
+            d.recreatePending = false
+            d.updatePending = false
+            clearError()
+            control.chartCreated(chart)
+        } catch (error) {
+            // Chart.build may have created an instance before reporting an
+            // invalid configuration.  Destroy it when possible so a failed
+            // chart does not remain in Chart.instances.
+            if (chart) {
+                try {
+                    chart.destroy()
+                } catch (ignored) {
+                }
+            }
+            d.jsChart = null
+            d.memorizedContext = context
+            d.recreatePending = false
+            d.updatePending = false
+            reportError(error)
         }
     }
 
-    function hitTest(x, y) {
-        var geometry = control.plotGeometry()
-        var dx = x - geometry.centerX
-        var dy = y - geometry.centerY
-        var distance = Math.sqrt(dx * dx + dy * dy)
-        var innerRadius = geometry.radius * control.cutoutPercentage() / 100
-        if (geometry.radius <= 0 || distance > geometry.radius + 8 || distance < innerRadius)
-            return -1
+    function applyPendingUpdate() {
+        if (!d.jsChart || !d.updatePending)
+            return
 
-        var total = control.totalValue()
-        if (total <= 0)
-            return -1
+        try {
+            d.jsChart.config.data = control.chartDataForChart()
+            d.jsChart.config.options = control.chartOptionsForChart()
+            d.jsChart.update({ duration: 0 })
 
-        var angle = Math.atan2(dy, dx) - control.chartRotation()
-        while (angle < 0)
-            angle += Math.PI * 2
-        while (angle >= Math.PI * 2)
-            angle -= Math.PI * 2
-
-        var accumulated = 0
-        for (var i = 0; i < control.sliceCount(); ++i) {
-            accumulated += control.valueAt(i) / total * Math.PI * 2
-            if (angle <= accumulated)
-                return i
+            d.memorizedData = control.chartData
+            d.memorizedOptions = control.chartOptions
+            d.updatePending = false
+            clearError()
+            control.chartUpdated()
+        } catch (error) {
+            d.updatePending = false
+            reportError(error)
         }
-        return control.sliceCount() - 1
+    }
+
+    // Public API for callers that mutate arrays/objects in place.  Normal QML
+    // property changes call this automatically; explicit updateChart() covers
+    // data models that keep the same QVariantMap instance.
+    function updateChart() {
+        d.updatePending = true
+        control.animateToNewData()
+    }
+
+    // Public API for changing chart type or replacing the rendering context.
+    function rebuildChart() {
+        d.recreatePending = true
+        d.updatePending = false
+        control.animateToNewData()
     }
 
     function animateToNewData() {
         control.chartAnimationProgress = 0.1
         chartAnimator.restart()
-    }
-
-    readonly property var defaultColors: [
-        "#4CC9F0",
-        "#4895EF",
-        "#4361EE",
-        "#3F37C9",
-        "#7209B7",
-        "#B5179E",
-        "#F72585",
-        "#F8961E",
-        "#90BE6D",
-        "#43AA8B"
-    ]
-
-    onChartDataChanged: {
-        control.hoveredIndex = -1
-        control.animateToNewData()
         control.requestPaint()
     }
-    onChartOptionsChanged: control.requestPaint()
+
+    onChartDataChanged: control.updateChart()
+    onChartOptionsChanged: control.updateChart()
+    onChartTypeChanged: control.rebuildChart()
     onChartAnimationProgressChanged: control.requestPaint()
-    onHoveredIndexChanged: control.requestPaint()
-    onWidthChanged: control.requestPaint()
-    onHeightChanged: control.requestPaint()
+    onWidthChanged: {
+        if (d.jsChart) {
+            try {
+                d.jsChart.resize()
+            } catch (error) {
+                reportError(error)
+            }
+        }
+        control.requestPaint()
+    }
+    onHeightChanged: {
+        if (d.jsChart) {
+            try {
+                d.jsChart.resize()
+            } catch (error) {
+                reportError(error)
+            }
+        }
+        control.requestPaint()
+    }
 
     onPaint: {
-        var ctx = getContext("2d")
-        ctx.clearRect(0, 0, width, height)
-
-        var geometry = control.plotGeometry()
-        var total = control.totalValue()
-        if (geometry.radius <= 0)
+        var context = control.getContext("2d")
+        if (!context)
             return
 
-        if (total <= 0) {
-            ctx.beginPath()
-            ctx.arc(geometry.centerX, geometry.centerY, geometry.radius, 0, Math.PI * 2)
-            ctx.fillStyle = QuiColor.Background
-            ctx.fill()
-            ctx.strokeStyle = QuiColor.Border
-            ctx.lineWidth = 1
-            ctx.stroke()
+        if (d.recreatePending || !d.jsChart || d.memorizedContext !== context)
+            control.createChart(context)
+
+        if (!d.jsChart)
             return
-        }
 
-        var progress = Math.max(0.1, Math.min(1, control.chartAnimationProgress))
-        var startAngle = control.chartRotation()
-        var innerRadius = geometry.radius * control.cutoutPercentage() / 100
-        var hoverOffset = Number(chartDataset().hoverOffset)
-        if (!isFinite(hoverOffset))
-            hoverOffset = 4
+        control.applyPendingUpdate()
 
-        for (var i = 0; i < control.sliceCount(); ++i) {
-            var sliceAngle = control.valueAt(i) / total * Math.PI * 2 * progress
-            var endAngle = startAngle + sliceAngle
-            var drawCenterX = geometry.centerX
-            var drawCenterY = geometry.centerY
-            var drawRadius = geometry.radius
-
-            if (i === control.hoveredIndex) {
-                var middleAngle = (startAngle + endAngle) / 2
-                drawCenterX += Math.cos(middleAngle) * hoverOffset
-                drawCenterY += Math.sin(middleAngle) * hoverOffset
-            }
-
-            ctx.beginPath()
-            ctx.moveTo(drawCenterX + Math.cos(startAngle) * innerRadius, drawCenterY + Math.sin(startAngle) * innerRadius)
-            ctx.arc(drawCenterX, drawCenterY, drawRadius, startAngle, endAngle)
-            if (innerRadius > 0)
-                ctx.arc(drawCenterX, drawCenterY, innerRadius, endAngle, startAngle, true)
-            else
-                ctx.lineTo(drawCenterX, drawCenterY)
-            ctx.closePath()
-            ctx.fillStyle = control.colorAt(i)
-            ctx.fill()
-            ctx.strokeStyle = QuiColor.Primary
-            ctx.lineWidth = 1.5
-            ctx.stroke()
-            startAngle = endAngle
+        try {
+            var progress = Math.max(0, Math.min(1, Number(control.chartAnimationProgress)))
+            d.jsChart.draw(isFinite(progress) ? progress : 1)
+            clearError()
+        } catch (error) {
+            reportError(error)
         }
     }
 
     MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
+        id: event
+        anchors.fill: control
+        enabled: control.interactive
+        hoverEnabled: control.interactive
+        acceptedButtons: Qt.AllButtons
 
-        onPositionChanged: function(mouse) {
-            var nextIndex = control.hitTest(mouse.x, mouse.y)
-            if (nextIndex !== control.hoveredIndex)
-                control.hoveredIndex = nextIndex
-            control.tooltipX = mouse.x
-            control.tooltipY = mouse.y
+        property var handler: undefined
+        property QtObject mouseEvent: QtObject {
+            property int left: 0
+            property int top: 0
+            // Preserve the fractional coordinates supplied by QML.  Arc hit
+            // testing is angular, so truncating these values can move a
+            // pointer across a slice boundary on scaled/high-DPI layouts.
+            property real x: 0
+            property real y: 0
+            property real clientX: 0
+            property real clientY: 0
+            property string type: ""
+            property var target: control
         }
-        onExited: control.hoveredIndex = -1
-    }
 
-    QuiText {
-        id: chartTitle
-        visible: control.titleText().length > 0
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 26
-        text: control.titleText()
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
-        color: QuiColor.FontPrimary
+        function submitEvent(mouse, type) {
+            mouseEvent.type = type
+            mouseEvent.clientX = mouse ? mouse.x : 0
+            mouseEvent.clientY = mouse ? mouse.y : 0
+            mouseEvent.x = mouse ? mouse.x : 0
+            mouseEvent.y = mouse ? mouse.y : 0
+            mouseEvent.left = 0
+            mouseEvent.top = 0
+            mouseEvent.target = control
+
+            if (handler)
+                handler(mouseEvent)
+            control.requestPaint()
+        }
+
+        onClicked: function(mouse) { submitEvent(mouse, "click") }
+        onPositionChanged: function(mouse) { submitEvent(mouse, "mousemove") }
+        onExited: submitEvent(null, "mouseout")
+        onEntered: submitEvent(null, "mouseenter")
+        onPressed: function(mouse) { submitEvent(mouse, "mousedown") }
+        onReleased: function(mouse) { submitEvent(mouse, "mouseup") }
     }
 
     QuiText {
         anchors.centerIn: parent
-        visible: control.totalValue() <= 0
-        text: qsTr("暂无数据")
+        visible: control.showEmptyState && control.emptyText.length > 0 && !control.hasData()
+        text: control.emptyText
         color: QuiColor.FontDark
-    }
-
-    QuiToolTip {
-        visible: control.hoveredIndex >= 0
-                 && control.tooltipAt(control.hoveredIndex).length > 0
-        z: 10
-        width: 178
-        delay: 0
-        x: Math.max(4, Math.min(control.width - width - 4, control.tooltipX + 8))
-        y: Math.max(4, Math.min(control.height - height - 4, control.tooltipY + 8))
-        text: control.tooltipAt(control.hoveredIndex)
     }
 
     PropertyAnimation {
         id: chartAnimator
         target: control
         property: "chartAnimationProgress"
+        alwaysRunToEnd: true
         from: 0.1
         to: 1
         duration: control.animationDuration
         easing.type: control.animationEasingType
         onFinished: control.animationFinished()
     }
+
+    Component.onDestruction: control.destroyChart()
 }
