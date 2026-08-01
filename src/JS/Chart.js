@@ -6737,7 +6737,10 @@ var controllers = {
  * @returns {object} the event position
  */
 function getRelativePosition(e, chart) {
-    if (e.native) {
+    // QuiChart supplies QML-local coordinates.  A QML property named
+    // `native` is reserved, so it uses `nativeEvent`; browser events still
+    // use the original `native` flag.
+    if (e.native || e.nativeEvent) {
         return {
             x: e.x,
             y: e.y

@@ -275,6 +275,11 @@ Canvas {
 
         property var handler: undefined
         property QtObject mouseEvent: QtObject {
+            // Chart.js treats this as a QML/local-coordinate event and
+            // therefore bypasses the browser/DOM bounding-rect path.  The
+            // `native` identifier is reserved by QML, so the adapter exposes
+            // an explicitly named flag and Chart.js accepts both forms.
+            property bool nativeEvent: true
             property int left: 0
             property int top: 0
             // Preserve the fractional coordinates supplied by QML.  Arc hit
