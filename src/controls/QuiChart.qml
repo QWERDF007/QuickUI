@@ -148,6 +148,7 @@ Canvas {
                 throw new Error("Chart.js could not acquire the Canvas 2D context")
 
             d.jsChart = chart
+            control.syncChartSize()
             d.jsChart.bindEvents(function(newHandler) {
                 event.handler = newHandler
             })
@@ -184,7 +185,9 @@ Canvas {
 
         try {
             d.jsChart.config.data = control.chartDataForChart()
-            d.jsChart.config.options = control.chartOptionsForChart()
+            // Chart.js updateConfig() reads chart.options, not config.options.
+            // Assign both so scale changes (scales.xAxes/yAxes) actually rebuild.
+            d.jsChart.config.options = d.jsChart.options = control.chartOptionsForChart()
             d.jsChart.update({ duration: 0 })
 
             d.memorizedData = control.chartData
@@ -196,6 +199,40 @@ Canvas {
             d.updatePending = false
             reportError(error)
         }
+    }
+
+    // Chart.js keeps its own width/height state.  On QML Canvas the context's
+    // canvas object can report a stale backing-store size (the chart is then
+    // rendered into a 1px-high band).  Always force Chart.js to the real item
+    // geometry instead of trusting its internal canvas measurement.
+    function syncChartSize() {
+        var chart = d.jsChart
+        if (!chart)
+            return
+
+        var w = Math.max(0, Math.floor(control.width))
+        var h = Math.max(0, Math.floor(control.height))
+        if (chart.width === w && chart.height === h)
+            return
+
+        chart.width = w
+        chart.height = h
+        try {
+            if (chart.canvas) {
+                chart.canvas.width = w
+                chart.canvas.height = h
+            }
+        } catch (error) {
+            reportError(error)
+        }
+
+        try {
+            chart.update({duration: 0})
+            clearError()
+        } catch (error) {
+            reportError(error)
+        }
+        control.requestPaint()
     }
 
     // Public API for callers that mutate arrays/objects in place.  Normal QML
@@ -224,23 +261,11 @@ Canvas {
     onChartTypeChanged: control.rebuildChart()
     onChartAnimationProgressChanged: control.requestPaint()
     onWidthChanged: {
-        if (d.jsChart) {
-            try {
-                d.jsChart.resize()
-            } catch (error) {
-                reportError(error)
-            }
-        }
+        control.syncChartSize()
         control.requestPaint()
     }
     onHeightChanged: {
-        if (d.jsChart) {
-            try {
-                d.jsChart.resize()
-            } catch (error) {
-                reportError(error)
-            }
-        }
+        control.syncChartSize()
         control.requestPaint()
     }
 
@@ -256,6 +281,8 @@ Canvas {
             return
 
         control.applyPendingUpdate()
+
+        control.syncChartSize()
 
         try {
             var progress = Math.max(0, Math.min(1, Number(control.chartAnimationProgress)))
