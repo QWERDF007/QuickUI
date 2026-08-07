@@ -1,13 +1,13 @@
 import QtQuick
 import QtQuick.Controls
+import Qt.labs.qmlmodels
 
 import quickui
 
 Rectangle {
     id: control
 
-    property alias model: table_view.model
-    property alias delegate: table_view.delegate
+    // ==================== view API ====================
     property alias view: table_view
     property alias bodyItem: body_overlay
     property alias bodyOverlay: body_overlay
@@ -23,18 +23,16 @@ Rectangle {
     property alias boundsBehavior: table_view.boundsBehavior
     property alias columnSpacing: table_view.columnSpacing
     property alias rowSpacing: table_view.rowSpacing
-    property alias headerModel: header_horizontal.model
-    property alias headerTextRole: header_horizontal.textRole
-
+    // ==================== geometry / style ====================
     property var columnSource: []
     property var columnWidthProvider: undefined
     property var rowHeightProvider: undefined
-    property Component headerDelegate: default_header_delegate
     property Component verticalHeaderDelegate: default_vertical_header_delegate
     property bool horizontalHeaderVisible: true
     property bool horizonalHeaderVisible: true
     property bool verticalHeaderVisible: false
     property bool resizableColumns: true
+    property bool resizableRows: true
     property bool fitColumnsToWidth: false
     property int startRowIndex: 1
     property real defaultColumnWidth: 100
@@ -46,6 +44,18 @@ Rectangle {
     property color headerTextColor: QuiColor.FontPrimary
     property color borderColor: QuiColor.Border
     property bool showGridLines: false
+    property bool zebraEnabled: true
+    property color zebraColor: Qt.lighter(QuiColor.Primary, 1.3)
+    property color hoverColor: Qt.rgba(1, 1, 1, 0.06)
+    property color selectedColor: Qt.rgba(0, 150, 136, 0.35)
+    property color selectedBorderColor: QuiColor.Highlight
+    property bool hoverEnabled: true
+    property bool rowSelectionEnabled: true
+
+    // ==================== data-driven API ====================
+    property var dataSource: undefined
+    readonly property alias sourceModel: table_source_model
+    readonly property var current: d.current
 
     readonly property real frozenWidth: frozenColumnsWidth()
 
@@ -60,9 +70,127 @@ Rectangle {
         id: d
         property var columnWidths: ({})
         property int columnWidthRevision: 0
+        property var rowHeights: ({})
+        property var headerColumnModel: null
         property bool destroying: false
+        property var current
+        property int rowHoverIndex: -1
+        property var editDelegate
+        property var editPosition
+
+        function uuid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                let r = Math.random() * 16 | 0
+                let v = c === 'x' ? r : (r & 0x3 | 0x8)
+                return v.toString(16)
+            })
+        }
+
+        function ensureKey(row) {
+            if (row && typeof row === "object" && !row._key) {
+                row._key = d.uuid()
+            }
+            return row
+        }
+
+        function getEditDelegate(column) {
+            let options = control.columnOptions(column)
+            if (options.editDelegate) {
+                return options.editDelegate
+            }
+            if (options.editMultiline === true) {
+                return com_edit_multiline
+            }
+            return com_edit
+        }
     }
 
+    // ==================== internal models ====================
+    QuiTableModel {
+        id: table_source_model
+    }
+
+    QuiTableSortProxyModel {
+        id: table_sort_model
+        model: table_source_model
+    }
+
+    TableModel {
+        id: header_row_model
+        columns: [TableModelColumn { display: "rowIndex" }]
+    }
+
+    // ==================== data plumbing ====================
+    onDataSourceChanged: {
+        if (d.destroying) {
+            return
+        }
+        let rows = dataSource === undefined || dataSource === null ? [] : dataSource
+        for (let i = 0; i < rows.length; ++i) {
+            d.ensureKey(rows[i])
+        }
+        table_source_model.rows = rows
+        syncModel()
+    }
+    onColumnSourceChanged: {
+        if (d.destroying) {
+            return
+        }
+        table_source_model.columnSource = control.columnSource
+        rebuildHeaderModel()
+        Qt.callLater(control.forceLayout)
+    }
+    onStartRowIndexChanged: updateRowIndex()
+
+    function syncModel() {
+        if (d.destroying) {
+            return
+        }
+        updateRowIndex()
+        Qt.callLater(control.forceLayout)
+    }
+
+    function rebuildHeaderModel() {
+        let count = control.columnSource.length
+        if (count === 0) {
+            let emptyOldModel = d.headerColumnModel
+            d.headerColumnModel = null
+            if (emptyOldModel) {
+                emptyOldModel.destroy()
+            }
+            return
+        }
+        let headerRow = {}
+        let qml = 'import Qt.labs.qmlmodels 1.0\nTableModel {\n'
+        for (let i = 0; i < count; ++i) {
+            let item = control.columnSource[i]
+            if (item && item.dataIndex === undefined) {
+                item.dataIndex = String(i)
+            }
+            headerRow[item.dataIndex] = item
+            qml += 'TableModelColumn { display: '
+                    + JSON.stringify(String(item.dataIndex)) + ' }\n'
+        }
+        qml += '}'
+
+        let oldModel = d.headerColumnModel
+        let newModel = Qt.createQmlObject(qml, control, "QuiTableHeaderModel")
+        newModel.rows = [headerRow]
+        d.headerColumnModel = newModel
+        if (oldModel) {
+            oldModel.destroy()
+        }
+    }
+
+    function updateRowIndex() {
+        let rows = []
+        for (let i = 0; i < table_view.rows; ++i) {
+            rows.push({ rowIndex: i + control.startRowIndex })
+        }
+        header_row_model.rows = rows
+    }
+
+    // ==================== layout ====================
     function forceLayout() {
         if (d.destroying) {
             return
@@ -153,7 +281,7 @@ Rectangle {
 
         let available = availableColumnsWidth()
         if (available <= 0) {
-            return 1
+            return baseColumnWidth(column)
         }
 
         let widths = []
@@ -169,11 +297,13 @@ Rectangle {
             widths.push(width)
             minimums.push(minimum)
             totalWidth += width
-            totalMinimum += minimum
             if (columnStretchEnabled(i)) {
+                totalMinimum += minimum
                 stretchFactorTotal += columnStretchFactor(i)
+                shrinkCapacityTotal += Math.max(0, width - minimum)
+            } else {
+                totalMinimum += width
             }
-            shrinkCapacityTotal += Math.max(0, width - minimum)
         }
 
         if (Math.abs(totalWidth - available) < 0.5) {
@@ -181,8 +311,11 @@ Rectangle {
         }
 
         if (totalMinimum > available) {
-            let scaledMinimum = minimums[column] * available / totalMinimum
-            return Math.max(1, scaledMinimum)
+            // Preserve an explicitly resized column even when the viewport is
+            // narrower than the sum of all minimum widths.  The table can
+            // overflow and scroll instead of snapping it back to minimum.
+            return d.columnWidths[column] !== undefined
+                   ? widths[column] : (columnStretchEnabled(column) ? minimums[column] : widths[column])
         }
 
         if (totalWidth < available) {
@@ -198,13 +331,17 @@ Rectangle {
         }
 
         let deficit = totalWidth - available
-        let capacity = Math.max(0, widths[column] - minimums[column])
+        let capacity = columnStretchEnabled(column)
+                       ? Math.max(0, widths[column] - minimums[column]) : 0
         return widths[column] - Math.min(capacity, deficit * capacity / shrinkCapacityTotal)
     }
 
     function currentRowHeight(row) {
         if (d.destroying) {
             return rowHeight
+        }
+        if (d.rowHeights[row] > 0) {
+            return d.rowHeights[row]
         }
         if (rowHeightProvider) {
             let height = rowHeightProvider(row)
@@ -213,6 +350,12 @@ Rectangle {
             }
         }
         return rowHeight
+    }
+
+    function setRowHeight(row, height) {
+        let adjustedHeight = Math.max(16, height)
+        d.rowHeights[row] = adjustedHeight
+        Qt.callLater(control.forceLayout)
     }
 
     function columnMinimumWidth(column) {
@@ -232,13 +375,14 @@ Rectangle {
 
     function setColumnWidth(column, width) {
         let minimumWidth = columnMinimumWidth(column)
-        let maximumWidth = fitColumnsToWidth ? columnResizeMaximumWidth(column) : columnMaximumWidth(column)
+        let maximumWidth = fitColumnsToWidth && columnStretchEnabled(column)
+                           ? columnResizeMaximumWidth(column) : columnMaximumWidth(column)
         let adjustedWidth = Math.min(Math.max(width, minimumWidth), maximumWidth)
         let widths = Object.assign({}, d.columnWidths)
         widths[column] = adjustedWidth
         d.columnWidths = widths
         d.columnWidthRevision += 1
-        Qt.callLater(forceLayout)
+        Qt.callLater(control.forceLayout)
     }
 
     function columnResizeMaximumWidth(column) {
@@ -254,6 +398,12 @@ Rectangle {
                 continue
             }
             available -= columnMinimumWidth(i)
+        }
+
+        // If the other columns already consume the viewport, allow this
+        // column to grow into the scrollable area.
+        if (available < columnMinimumWidth(column)) {
+            return maximumWidth
         }
 
         return Math.max(columnMinimumWidth(column), Math.min(maximumWidth, available))
@@ -302,6 +452,28 @@ Rectangle {
         return x
     }
 
+    function frozenColumnVisualX(column) {
+        if (d.destroying) {
+            return 0
+        }
+        let width = columnWidth(column)
+        let minimumX = 0
+        let maximumX = table_view.width - width
+        for (let i = 0; i < column; ++i) {
+            if (isFrozenColumn(i)) {
+                minimumX += columnWidth(i)
+            }
+        }
+        for (let i = column + 1; i < table_view.columns; ++i) {
+            if (isFrozenColumn(i)) {
+                maximumX -= columnWidth(i)
+            }
+        }
+        maximumX = Math.max(minimumX, maximumX)
+        let naturalX = columnOffset(column) - table_view.contentX
+        return Math.min(Math.max(naturalX, minimumX), maximumX)
+    }
+
     function columnOffset(column) {
         if (d.destroying) {
             return 0
@@ -318,7 +490,7 @@ Rectangle {
             return 0
         }
         if (isFrozenColumn(column)) {
-            return frozenColumnX(column)
+            return frozenColumnVisualX(column)
         }
         return columnOffset(column) - table_view.contentX
     }
@@ -330,17 +502,106 @@ Rectangle {
         table_view.model = null
     }
 
-    function headerDisplayText(value, modelObject) {
-        if (headerTextRole && value && typeof value === "object" && value[headerTextRole] !== undefined) {
-            return String(value[headerTextRole])
+    // ==================== data-driven operations ====================
+    function closeEditor() {
+        d.editPosition = undefined
+        d.editDelegate = undefined
+    }
+
+    function customItem(comId, options = {}) {
+        let o = {}
+        o.comId = comId
+        o.options = options
+        return o
+    }
+
+    function sort(callback) {
+        if (callback) {
+            table_sort_model.setComparator(callback)
+        } else {
+            table_sort_model.setComparator(undefined)
         }
-        if (headerTextRole && modelObject && typeof modelObject === "object" && modelObject[headerTextRole] !== undefined) {
-            return String(modelObject[headerTextRole])
+    }
+
+    function filter(callback) {
+        if (callback) {
+            table_sort_model.setFilter(callback)
+        } else {
+            table_sort_model.setFilter(undefined)
         }
-        if (value === undefined || value === null) {
-            return ""
+    }
+
+    function setRow(rowIndex, obj) {
+        let old = getRow(rowIndex)
+        let map = obj
+        if (obj && typeof obj === "object") {
+            map = Object.assign({}, obj)
+            if (map._key === undefined && old) {
+                map._key = old._key
+            }
+            d.ensureKey(map)
         }
-        return String(value)
+        table_sort_model.setRow(rowIndex, map)
+    }
+
+    function getRow(rowIndex) {
+        return table_sort_model.getRow(rowIndex)
+    }
+
+    function rowData(rowIndex) {
+        return getRow(rowIndex)
+    }
+
+    function removeRow(rowIndex, rows = 1) {
+        table_sort_model.removeRow(rowIndex, rows)
+    }
+
+    function insertRow(rowIndex, obj) {
+        let map = obj
+        if (obj && typeof obj === "object") {
+            map = Object.assign({}, obj)
+            d.ensureKey(map)
+        }
+        table_sort_model.insertRow(rowIndex, map)
+    }
+
+    function appendRow(obj) {
+        insertRow(table_source_model.rowCount, obj)
+    }
+
+    function currentIndex() {
+        let index = -1
+        if (!d.current) {
+            return index
+        }
+        for (let i = 0; i < table_source_model.rowCount; ++i) {
+            let sourceItem = table_source_model.getRow(i)
+            if (sourceItem && sourceItem._key === d.current._key) {
+                index = i
+                break
+            }
+        }
+        return index
+    }
+
+    function setCurrent(rowIndex) {
+        let map = getRow(rowIndex)
+        if (map) {
+            d.current = map
+        }
+    }
+
+    // ==================== default header delegates ====================
+    Component {
+        id: com_header_text
+
+        QuiText {
+            text: display === undefined || display === null ? "" : String(display)
+            color: control.headerTextColor
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
     }
 
     Component {
@@ -348,30 +609,32 @@ Rectangle {
 
         Rectangle {
             property int sourceColumn: typeof column === "undefined" ? index : column
+            property var _model: model
+            property var currentTableView: TableView.view
 
-            implicitWidth: control.columnWidth(sourceColumn)
+            readonly property bool isMainHeader: currentTableView === header_horizontal
+            readonly property bool isHidden: !isMainHeader && currentTableView
+                                             && currentTableView.dataIndex !== undefined
+                                             && columnMap
+                                             && currentTableView.dataIndex !== columnMap.dataIndex
+
+            implicitWidth: isHidden ? Number.MIN_VALUE : control.columnWidth(sourceColumn)
             implicitHeight: control.headerHeight
+            visible: !isHidden
             color: control.headerColor
             border.color: control.borderColor
             border.width: control.showGridLines ? 1 : 0
 
-            QuiText {
+            property var columnMap: (_model && _model.display && typeof _model.display.title !== "undefined")
+                                    ? _model.display : null
+            property var titleValue: columnMap ? columnMap.title : undefined
+
+            QuiLoader {
                 anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                text: {
-                    let value = undefined
-                    if (typeof modelData !== "undefined") {
-                        value = modelData
-                    } else if (typeof display !== "undefined") {
-                        value = display
-                    }
-                    return control.headerDisplayText(value, model)
-                }
-                color: control.headerTextColor
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
+                property var display: titleValue
+                property var options: (typeof display === "object" && display && display.options) ? display.options : ({})
+                sourceComponent: (typeof display === "object" && display && display.comId)
+                                 ? display.comId : com_header_text
             }
         }
     }
@@ -391,12 +654,308 @@ Rectangle {
             QuiText {
                 id: row_text
                 anchors.centerIn: parent
-                text: sourceRow + control.startRowIndex
+                text: {
+                    if (typeof model !== "undefined" && model && typeof model.display !== "undefined") {
+                        return String(model.display)
+                    }
+                    return String(sourceRow + control.startRowIndex)
+                }
                 color: control.headerTextColor
+            }
+
+            MouseArea {
+                property point clickPos: "0,0"
+                width: parent.width
+                height: 6
+                anchors.bottom: parent.bottom
+                acceptedButtons: Qt.LeftButton
+                cursorShape: Qt.SplitVCursor
+                preventStealing: true
+                visible: control.resizableRows && control.verticalHeaderVisible
+                onPressed: function(mouse) {
+                    clickPos = Qt.point(mouse.x, mouse.y)
+                    mouse.accepted = true
+                }
+                onPositionChanged: function(mouse) {
+                    if (!pressed) {
+                        return
+                    }
+                    control.setRowHeight(sourceRow, control.currentRowHeight(sourceRow) + mouse.y - clickPos.y)
+                    mouse.accepted = true
+                }
             }
         }
     }
 
+    // ==================== data-driven body delegate ====================
+    Component {
+        id: com_text
+
+        QuiText {
+            id: item_text
+            text: display === undefined || display === null ? "" : String(display)
+            elide: Text.ElideRight
+            wrapMode: Text.WrapAnywhere
+            anchors.fill: parent
+            anchors.leftMargin: 11
+            anchors.rightMargin: 11
+            anchors.topMargin: 6
+            anchors.bottomMargin: 6
+            verticalAlignment: Text.AlignVCenter
+            MouseArea {
+                acceptedButtons: Qt.NoButton
+                id: hover_handler
+                hoverEnabled: true
+                anchors.fill: parent
+            }
+            QuiToolTip {
+                text: item_text.text
+                delay: 500
+                visible: item_text.contentWidth < item_text.implicitWidth
+                         && item_text.contentHeight < item_text.implicitHeight
+                         && hover_handler.containsMouse
+            }
+        }
+    }
+
+    Component {
+        id: com_edit
+
+        QuiTextField {
+            id: text_box
+            text: String(display)
+            readOnly: true === control.columnOptions(column).readOnly
+            Component.onCompleted: {
+                forceActiveFocus()
+                selectAll()
+            }
+            onAccepted: {
+                if (!readOnly) {
+                    editTextChaged(text_box.text)
+                }
+                control.closeEditor()
+            }
+        }
+    }
+
+    Component {
+        id: com_edit_multiline
+
+        Item {
+            anchors.fill: parent
+            Flickable {
+                id: item_scroll
+                clip: true
+                anchors.fill: parent
+                ScrollBar.vertical: multiline_text_scroll_bar
+                boundsBehavior: Flickable.StopAtBounds
+                TextArea.flickable: QuiTextArea {
+                    id: text_box
+                    text: String(display)
+                    readOnly: true === control.columnOptions(column).readOnly
+                    verticalAlignment: TextEdit.AlignVCenter
+                    rightPadding: 34
+                    Component.onCompleted: {
+                        forceActiveFocus()
+                        selectAll()
+                    }
+                    Keys.onReturnPressed: function(event) {
+                        event.accepted = true
+                        if (event.modifiers & Qt.ControlModifier) {
+                            text_box.insert(text_box.cursorPosition, "\n")
+                            return
+                        }
+                        if (!readOnly) {
+                            editTextChaged(text_box.text)
+                        }
+                        control.closeEditor()
+                    }
+                }
+            }
+            QuiTextIconButton {
+                iconSource: QuiFontIcon.ChromeClose
+                iconSize: 10
+                width: 20
+                height: 20
+                padding: 0
+                verticalPadding: 0
+                horizontalPadding: 0
+                visible: !text_box.readOnly && text_box.text !== ""
+                anchors {
+                    verticalCenter: parent.verticalCenter
+                    right: parent.right
+                    rightMargin: 15
+                }
+                onClicked: {
+                    text_box.text = ""
+                }
+            }
+            QuiScrollBar {
+                id: multiline_text_scroll_bar
+                anchors {
+                    right: parent.right
+                    rightMargin: 5
+                    top: parent.top
+                    bottom: parent.bottom
+                    topMargin: 3
+                    bottomMargin: 3
+                }
+            }
+        }
+    }
+
+    Component {
+        id: com_table_delegate
+
+        MouseArea {
+            id: item_table_mouse
+            property var _model: model
+            property var currentTableView: TableView.view
+            property var rowModel: _model ? _model.rowModel : null
+            property var columnModel: _model ? _model.columnModel : null
+            property var display: rowModel && columnModel ? rowModel[columnModel.dataIndex] : undefined
+            readonly property bool isObject: typeof display === "object" && display !== null
+            readonly property var options: isObject && display.options ? display.options : ({})
+            readonly property bool isRowSelected: !!(
+                control.rowSelectionEnabled && rowModel && d.current && rowModel._key === d.current._key)
+            readonly property bool isFrozenCell: !!(columnModel && columnModel.frozen === true)
+            readonly property bool isMainTable: TableView.view === table_view
+            readonly property bool isHidden: isMainTable
+                                             ? isFrozenCell
+                                             : !!(currentTableView && currentTableView.dataIndex !== undefined
+                                                  && columnModel
+                                                  && currentTableView.dataIndex !== columnModel.dataIndex)
+            readonly property bool editVisible: !!(
+                d.editPosition && rowModel && d.editPosition._key === rowModel._key
+                && d.editPosition.column === column)
+
+            implicitWidth: isHidden ? Number.MIN_VALUE : TableView.view.width
+            visible: !isHidden
+            hoverEnabled: control.hoverEnabled
+            onEntered: d.rowHoverIndex = row
+            onExited: {
+                if (d.rowHoverIndex === row) {
+                    d.rowHoverIndex = -1
+                }
+            }
+            onCanceled: d.rowHoverIndex = -1
+            onPressed: control.closeEditor()
+            onDoubleClicked: {
+                if (isObject || !rowModel || !columnModel) {
+                    return
+                }
+                loader_edit.display = display
+                d.editDelegate = d.getEditDelegate(column)
+                d.editPosition = { _key: rowModel._key, row: row, column: column }
+            }
+            onClicked: function(event) {
+                if (rowModel && control.rowSelectionEnabled) {
+                    d.current = rowModel
+                }
+                control.closeEditor()
+                event.accepted = true
+            }
+            TableView.onPooled: {
+                if (TableView.view === table_view && editVisible) {
+                    control.closeEditor()
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                color: {
+                    if (item_table_mouse.isRowSelected) {
+                        return control.selectedColor
+                    }
+                    if (control.hoverEnabled && d.rowHoverIndex === row) {
+                        return control.hoverColor
+                    }
+                    if (row % 2 !== 0) {
+                        return control.color
+                    }
+                    return control.zebraEnabled ? control.zebraColor : control.color
+                }
+                border.color: control.borderColor
+                border.width: control.showGridLines ? 1 : 0
+            }
+
+            QuiLoader {
+                id: item_table_loader
+                anchors.fill: parent
+                property var tableView: control
+                property var model: item_table_mouse._model
+                property var display: item_table_mouse.display
+                property var rowModel: item_table_mouse.rowModel
+                property var columnModel: item_table_mouse.columnModel
+                property int row: typeof item_table_mouse.row === "number" ? item_table_mouse.row : 0
+                property int column: typeof item_table_mouse.column === "number" ? item_table_mouse.column : 0
+                property var options: item_table_mouse.options
+                sourceComponent: item_table_mouse.isObject ? display.comId : com_text
+            }
+
+            Item {
+                anchors.fill: parent
+                visible: item_table_mouse.isRowSelected
+                Rectangle {
+                    width: 1
+                    height: parent.height
+                    anchors.left: parent.left
+                    color: control.selectedBorderColor
+                    visible: column === 0 && (!item_table_mouse.isMainTable || !item_table_mouse.isFrozenCell)
+                }
+                Rectangle {
+                    width: 1
+                    height: parent.height
+                    anchors.right: parent.right
+                    color: control.selectedBorderColor
+                    visible: column === control.columns - 1 && (!item_table_mouse.isMainTable || !item_table_mouse.isFrozenCell)
+                }
+                Rectangle {
+                    width: parent.width
+                    height: 1
+                    anchors.top: parent.top
+                    color: control.selectedBorderColor
+                }
+                Rectangle {
+                    width: parent.width
+                    height: 1
+                    anchors.bottom: parent.bottom
+                    color: control.selectedBorderColor
+                }
+            }
+
+            QuiLoader {
+                id: loader_edit
+                property var tableView: control
+                property var display
+                property int column: d.editPosition ? d.editPosition.column : 0
+                property int row: d.editPosition ? d.editPosition.row : 0
+                anchors.fill: parent
+                anchors.margins: 1
+                z: 999
+                signal editTextChaged(string text)
+                sourceComponent: {
+                    if (!item_table_mouse.editVisible) {
+                        return undefined
+                    }
+                    if (item_table_mouse.isMainTable && item_table_mouse.isFrozenCell) {
+                        return undefined
+                    }
+                    return d.editDelegate
+                }
+                onEditTextChaged: function(text) {
+                    let obj = control.getRow(row)
+                    let columnModel = control.columnSource[column]
+                    if (obj && columnModel) {
+                        obj[columnModel.dataIndex] = text
+                        control.setRow(row, obj)
+                    }
+                }
+            }
+        }
+    }
+
+    // ==================== chrome ====================
     Rectangle {
         id: header_corner
         visible: header_horizontal.visible && header_vertical.visible
@@ -409,19 +968,22 @@ Rectangle {
         border.width: control.showGridLines ? 1 : 0
     }
 
-    HorizontalHeaderView {
+    TableView {
         id: header_horizontal
         visible: control.horizontalHeaderVisible && control.horizonalHeaderVisible
-        height: visible ? control.headerHeight : 0
-        anchors.left: parent.left
-        anchors.leftMargin: header_vertical.visible ? header_vertical.width : 0
-        anchors.right: parent.right
-        anchors.top: parent.top
+        height: visible ? Math.max(1, contentHeight) : 0
+        anchors {
+            left: header_vertical.right
+            right: parent.right
+            top: parent.top
+        }
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         columnSpacing: table_view.columnSpacing
-        syncView: d.destroying ? null : table_view
-        delegate: control.headerDelegate
+        syncDirection: Qt.Horizontal
+        syncView: table_view.rows === 0 ? null : table_view
+        model: d.destroying ? null : d.headerColumnModel
+        delegate: default_header_delegate
 
         onContentXChanged: {
             if (!d.destroying) {
@@ -430,18 +992,20 @@ Rectangle {
         }
     }
 
-    VerticalHeaderView {
+    TableView {
         id: header_vertical
         visible: control.verticalHeaderVisible
-        width: visible ? Math.max(1, contentWidth) : 0
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.topMargin: header_horizontal.visible ? header_horizontal.height : 0
-        anchors.bottom: parent.bottom
+        implicitWidth: visible ? Math.max(1, contentWidth) : 0
+        implicitHeight: syncView ? syncView.height : 0
+        anchors {
+            top: table_view.top
+            left: parent.left
+        }
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        rowSpacing: table_view.rowSpacing
-        syncView: d.destroying ? null : table_view
+        syncDirection: Qt.Vertical
+        syncView: table_view
+        model: d.destroying ? null : header_row_model
         delegate: control.verticalHeaderDelegate
 
         onContentYChanged: {
@@ -461,6 +1025,8 @@ Rectangle {
         anchors.bottom: parent.bottom
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        model: d.destroying ? null : table_sort_model
+        delegate: d.destroying ? null : com_table_delegate
         columnWidthProvider: function(column) {
             return control.columnWidth(column)
         }
@@ -482,9 +1048,12 @@ Rectangle {
             }
         }
         onRowsChanged: {
-            if (!d.destroying) {
-                Qt.callLater(control.forceLayout)
+            if (d.destroying) {
+                return
             }
+            control.closeEditor()
+            control.updateRowIndex()
+            Qt.callLater(control.forceLayout)
         }
         onColumnsChanged: {
             if (!d.destroying) {
@@ -496,10 +1065,10 @@ Rectangle {
     Item {
         id: frozen_layer
         anchors.left: table_view.left
+        anchors.right: table_view.right
         anchors.top: header_horizontal.visible ? header_horizontal.top : table_view.top
         anchors.bottom: table_view.bottom
-        width: control.frozenWidth
-        visible: width > 0
+        visible: control.frozenColumnIndexes().length > 0
         clip: true
         z: 10
 
@@ -510,14 +1079,15 @@ Rectangle {
                 id: frozen_column_item
                 property int sourceColumn: modelData
 
-                x: control.frozenColumnX(sourceColumn)
+                x: control.frozenColumnVisualX(sourceColumn)
                 width: control.columnWidth(sourceColumn)
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 clip: true
 
-                HorizontalHeaderView {
+                TableView {
                     id: frozen_header
+                    property string dataIndex: String(control.columnOptions(sourceColumn).dataIndex)
                     visible: header_horizontal.visible
                     anchors.left: parent.left
                     anchors.right: parent.right
@@ -526,13 +1096,16 @@ Rectangle {
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
                     interactive: false
-                    columnSpacing: table_view.columnSpacing
+                    contentWidth: width
                     syncView: d.destroying ? null : frozen_table
-                    delegate: control.headerDelegate
+                    syncDirection: Qt.Horizontal
+                    model: d.destroying ? null : d.headerColumnModel
+                    delegate: default_header_delegate
                 }
 
                 TableView {
                     id: frozen_table
+                    property string dataIndex: String(control.columnOptions(sourceColumn).dataIndex)
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
@@ -545,10 +1118,8 @@ Rectangle {
                     syncDirection: Qt.Vertical
                     model: d.destroying ? null : table_view.model
                     delegate: d.destroying ? null : table_view.delegate
-                    columnSpacing: table_view.columnSpacing
+                    contentWidth: width
                     rowSpacing: table_view.rowSpacing
-                    contentX: control.columnOffset(sourceColumn)
-                    columnWidthProvider: d.destroying ? undefined : table_view.columnWidthProvider
                     rowHeightProvider: d.destroying ? undefined : table_view.rowHeightProvider
                 }
 

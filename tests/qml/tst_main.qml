@@ -25,4 +25,5 @@ Item {
     QuiNumericScrollControlsTest {}
     QuiPopupMenuControlsTest {}
     QuiLayoutContainerControlsTest {}
+    QuiTableViewTest {}
 }
