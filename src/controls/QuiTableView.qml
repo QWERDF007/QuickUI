@@ -531,6 +531,22 @@ Rectangle {
         }
     }
 
+    function setFieldFilter(field, keyword) {
+        table_sort_model.setFieldFilter(field, keyword === undefined || keyword === null ? "" : String(keyword))
+    }
+
+    function setFieldFilters(filters) {
+        table_sort_model.fieldFilters = filters || ({})
+    }
+
+    function clearFieldFilter(field) {
+        table_sort_model.clearFieldFilter(field)
+    }
+
+    function clearFieldFilters() {
+        table_sort_model.clearFieldFilters()
+    }
+
     function setRow(rowIndex, obj) {
         let old = getRow(rowIndex)
         let map = obj

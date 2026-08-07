@@ -5,6 +5,7 @@
 
 #include <QJSValue>
 #include <QSortFilterProxyModel>
+#include <QVariantMap>
 #include <QtQml>
 
 namespace quickui {
@@ -19,6 +20,7 @@ class QUICKUI_EXPORT QuiTableSortProxyModel : public QSortFilterProxyModel
 {
     Q_OBJECT
     Q_PROPERTY(QVariant model READ model WRITE setModel NOTIFY modelChanged FINAL)
+    Q_PROPERTY(QVariantMap fieldFilters READ fieldFilters WRITE setFieldFilters NOTIFY fieldFiltersChanged FINAL)
     QML_NAMED_ELEMENT(QuiTableSortProxyModel)
 public:
     explicit QuiTableSortProxyModel(QObject *parent = nullptr);
@@ -29,6 +31,8 @@ public:
 
     QVariant model() const;
     void setModel(const QVariant &model);
+    QVariantMap fieldFilters() const;
+    Q_INVOKABLE void setFieldFilters(const QVariantMap &filters);
 
     Q_INVOKABLE QVariant getRow(int rowIndex) const;
     Q_INVOKABLE void setRow(int rowIndex, const QVariant &val);
@@ -36,14 +40,19 @@ public:
     Q_INVOKABLE void removeRow(int rowIndex, int rows = 1);
     Q_INVOKABLE void setComparator(const QJSValue &comparator);
     Q_INVOKABLE void setFilter(const QJSValue &filter);
+    Q_INVOKABLE void setFieldFilter(const QString &field, const QString &keyword);
+    Q_INVOKABLE void clearFieldFilter(const QString &field);
+    Q_INVOKABLE void clearFieldFilters();
 
 signals:
     void modelChanged();
+    void fieldFiltersChanged();
 
 private:
     QJSValue filter_;
     QJSValue comparator_;
     QVariant model_;
+    QVariantMap field_filters_;
 };
 
 } // namespace quickui
