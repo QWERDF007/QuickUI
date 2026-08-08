@@ -51,7 +51,6 @@ Rectangle {
     property color selectedBorderColor: QuiColor.Highlight
     property bool hoverEnabled: true
     property bool rowSelectionEnabled: true
-
     // ==================== data-driven API ====================
     property var dataSource: undefined
     readonly property alias sourceModel: table_source_model
@@ -156,7 +155,15 @@ Rectangle {
             let emptyOldModel = d.headerColumnModel
             d.headerColumnModel = null
             if (emptyOldModel) {
-                emptyOldModel.destroy()
+                // Let TableView process the null model before destroying the
+                // dynamically-created TableModel.  Immediate destruction can
+                // leave QQuickTableViewPrivate::syncViewportRect polishing a
+                // stale header model during a data reset.
+                Qt.callLater(function() {
+                    if (!d.destroying && emptyOldModel) {
+                        emptyOldModel.destroy()
+                    }
+                })
             }
             return
         }
@@ -178,7 +185,11 @@ Rectangle {
         newModel.rows = [headerRow]
         d.headerColumnModel = newModel
         if (oldModel) {
-            oldModel.destroy()
+            Qt.callLater(function() {
+                if (!d.destroying && oldModel) {
+                    oldModel.destroy()
+                }
+            })
         }
     }
 
@@ -997,7 +1008,7 @@ Rectangle {
         boundsBehavior: Flickable.StopAtBounds
         columnSpacing: table_view.columnSpacing
         syncDirection: Qt.Horizontal
-        syncView: table_view.rows === 0 ? null : table_view
+        syncView: d.destroying || table_view.rows === 0 ? null : table_view
         model: d.destroying ? null : d.headerColumnModel
         delegate: default_header_delegate
 
@@ -1020,7 +1031,7 @@ Rectangle {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         syncDirection: Qt.Vertical
-        syncView: table_view
+        syncView: d.destroying ? null : table_view
         model: d.destroying ? null : header_row_model
         delegate: control.verticalHeaderDelegate
 
@@ -1043,6 +1054,20 @@ Rectangle {
         boundsBehavior: Flickable.StopAtBounds
         model: d.destroying ? null : table_sort_model
         delegate: d.destroying ? null : com_table_delegate
+
+        onRowsChanged: {
+            if (d.destroying) {
+                return
+            }
+            control.closeEditor()
+            control.updateRowIndex()
+            Qt.callLater(control.forceLayout)
+        }
+        onColumnsChanged: {
+            if (!d.destroying) {
+                Qt.callLater(control.forceLayout)
+            }
+        }
         columnWidthProvider: function(column) {
             return control.columnWidth(column)
         }
@@ -1059,19 +1084,6 @@ Rectangle {
             }
         }
         onHeightChanged: {
-            if (!d.destroying) {
-                Qt.callLater(control.forceLayout)
-            }
-        }
-        onRowsChanged: {
-            if (d.destroying) {
-                return
-            }
-            control.closeEditor()
-            control.updateRowIndex()
-            Qt.callLater(control.forceLayout)
-        }
-        onColumnsChanged: {
             if (!d.destroying) {
                 Qt.callLater(control.forceLayout)
             }
@@ -1113,8 +1125,6 @@ Rectangle {
                     boundsBehavior: Flickable.StopAtBounds
                     interactive: false
                     contentWidth: width
-                    syncView: d.destroying ? null : frozen_table
-                    syncDirection: Qt.Horizontal
                     model: d.destroying ? null : d.headerColumnModel
                     delegate: default_header_delegate
                 }
