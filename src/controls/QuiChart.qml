@@ -3,36 +3,33 @@ import QtQuick
 import "../JS/Chart.js" as Chart
 import quickui
 
-/*
- * A QML adapter for the Chart.js QML build.
+/**
+ * @brief Chart.js QML 构建的通用适配器。
  *
- * QuiChart deliberately keeps the Chart.js data/configuration contract instead
- * of knowing anything about a particular domain.  Any chart type registered by
- * Chart.js (line, bar, pie, doughnut, radar, ...) can therefore be selected by
- * changing chartType and supplying the corresponding chartData/chartOptions.
+ * QuiChart 保持 Chart.js 的数据和配置契约，不绑定具体业务领域；调用方
+ * 只需修改 chartType 并提供对应的 chartData/chartOptions 即可使用已注册图表。
  */
 Canvas {
     id: control
 
-    // Chart.js configuration surface.
+    /** Chart.js 配置入口。 */
     property string chartType: "pie"
     property var chartData: ({ labels: [], datasets: [] })
     property var chartOptions: ({})
 
-    // The QML animation drives Chart.js' draw(easing) method.  Chart.js' own
-    // animation scheduler is disabled by chartOptionsForChart() below because
-    // it cannot schedule frames for a QML Canvas.
+    /**
+     * QML 动画负责驱动 Chart.js 的 draw(easing)，Chart.js 自身动画调度在
+     * chartOptionsForChart() 中关闭，因为它无法为 QML Canvas 调度帧。
+     */
     property real chartAnimationProgress: 0.1
     property int animationEasingType: Easing.InOutExpo
     property real animationDuration: 300
     property alias animationRunning: chartAnimator.running
 
-    // Interaction is kept at the adapter level so chart-specific event
-    // handling remains in Chart.js options (onClick/onHover/etc.).
+    /** 交互保留在适配器层，具体图表事件仍由 Chart.js 配置处理。 */
     property bool interactive: true
 
-    // Empty-state rendering is generic and can be disabled or replaced by a
-    // consumer that wants to provide its own placeholder.
+    /** 空状态绘制是通用行为，调用方可以关闭或替换占位内容。 */
     property bool showEmptyState: true
     property string emptyText: qsTr("暂无数据")
 
@@ -58,19 +55,31 @@ Canvas {
         property string lastError: ""
     }
 
-    function copyObject(source) {
-        var result = ({})
-        if (!source || typeof source !== "object")
-            return result
+    function copyValue(source) {
+        if (source === null || source === undefined || typeof source !== "object")
+            return source
 
+        if (Array.isArray(source)) {
+            var array = []
+            for (var index = 0; index < source.length; ++index)
+                array.push(copyValue(source[index]))
+            return array
+        }
+
+        var result = ({})
         for (var key in source)
-            result[key] = source[key]
+            result[key] = copyValue(source[key])
         return result
+    }
+
+    function copyObject(source) {
+        var result = copyValue(source)
+        return result && typeof result === "object" && !Array.isArray(result) ? result : ({})
     }
 
     function chartDataForChart() {
         if (control.chartData && typeof control.chartData === "object")
-            return control.chartData
+            return copyValue(control.chartData)
         return ({ labels: [], datasets: [] })
     }
 
@@ -78,9 +87,10 @@ Canvas {
         var options = control.copyObject(control.chartOptions)
         var animation = control.copyObject(options.animation)
 
-        // The QML PropertyAnimation below is the single frame scheduler.  A
-        // zero Chart.js duration keeps update() synchronous and prevents an
-        // inaccessible browser animation loop from competing with it.
+        /**
+         * QML PropertyAnimation 是唯一的帧调度器。Chart.js 时长设为零可让
+         * update() 同步执行，避免不可控的浏览器动画循环产生竞争。
+         */
         animation.duration = 0
         options.animation = animation
         return options
@@ -132,8 +142,7 @@ Canvas {
     }
 
     function createChart(context) {
-        // A context can change when the Canvas is recreated, so release all
-        // resources associated with the previous Chart.js instance first.
+        /** Canvas 重建后上下文可能变化，因此先释放旧 Chart.js 实例的资源。 */
         control.destroyChart()
 
         var chart = null
@@ -162,9 +171,10 @@ Canvas {
             clearError()
             control.chartCreated(chart)
         } catch (error) {
-            // Chart.build may have created an instance before reporting an
-            // invalid configuration.  Destroy it when possible so a failed
-            // chart does not remain in Chart.instances.
+            /**
+             * Chart.build 可能在报告配置无效前已经创建实例；尽可能销毁它，
+             * 避免失败图表残留在 Chart.instances 中。
+             */
             if (chart) {
                 try {
                     chart.destroy()
@@ -185,8 +195,10 @@ Canvas {
 
         try {
             d.jsChart.config.data = control.chartDataForChart()
-            // Chart.js updateConfig() reads chart.options, not config.options.
-            // Assign both so scale changes (scales.xAxes/yAxes) actually rebuild.
+            /**
+             * Chart.js 的 updateConfig() 读取 chart.options 而不是 config.options，
+             * 两处同时赋值才能使坐标轴变化真正重建。
+             */
             d.jsChart.config.options = d.jsChart.options = control.chartOptionsForChart()
             d.jsChart.update({ duration: 0 })
 
@@ -201,10 +213,10 @@ Canvas {
         }
     }
 
-    // Chart.js keeps its own width/height state.  On QML Canvas the context's
-    // canvas object can report a stale backing-store size (the chart is then
-    // rendered into a 1px-high band).  Always force Chart.js to the real item
-    // geometry instead of trusting its internal canvas measurement.
+    /**
+     * Chart.js 保存自身的宽高状态。QML Canvas 的上下文可能报告过期的后备
+     * 存储尺寸，导致图表被绘制到一像素高区域，因此始终使用当前 Item 几何。
+     */
     function syncChartSize() {
         var chart = d.jsChart
         if (!chart)
@@ -235,15 +247,18 @@ Canvas {
         control.requestPaint()
     }
 
-    // Public API for callers that mutate arrays/objects in place.  Normal QML
-    // property changes call this automatically; explicit updateChart() covers
-    // data models that keep the same QVariantMap instance.
+    /**
+     * @brief 处理原地修改数组/对象的数据更新。
+     *
+     * 普通 QML 属性变化会自动触发该函数，保持同一 QVariantMap 实例的模型
+     * 可显式调用 updateChart()。
+     */
     function updateChart() {
         d.updatePending = true
         control.animateToNewData()
     }
 
-    // Public API for changing chart type or replacing the rendering context.
+    /** @brief 修改图表类型或替换绘制上下文。 */
     function rebuildChart() {
         d.recreatePending = true
         d.updatePending = false
@@ -302,16 +317,17 @@ Canvas {
 
         property var handler: undefined
         property QtObject mouseEvent: QtObject {
-            // Chart.js treats this as a QML/local-coordinate event and
-            // therefore bypasses the browser/DOM bounding-rect path.  The
-            // `native` identifier is reserved by QML, so the adapter exposes
-            // an explicitly named flag and Chart.js accepts both forms.
+            /**
+             * Chart.js 将该事件视为 QML 本地坐标事件，因此不经过浏览器 DOM
+             * 边界路径；native 标识被 QML 保留，适配器使用显式命名的标记。
+             */
             property bool nativeEvent: true
             property int left: 0
             property int top: 0
-            // Preserve the fractional coordinates supplied by QML.  Arc hit
-            // testing is angular, so truncating these values can move a
-            // pointer across a slice boundary on scaled/high-DPI layouts.
+            /**
+             * 保留 QML 提供的小数坐标。圆弧命中检测依赖角度，截断坐标可能在
+             * 缩放或高 DPI 布局中把指针移到相邻切片。
+             */
             property real x: 0
             property real y: 0
             property real clientX: 0

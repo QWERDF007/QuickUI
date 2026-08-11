@@ -7,7 +7,7 @@ import quickui
 Rectangle {
     id: control
 
-    // ==================== view API ====================
+    /* ==================== 视图 API ==================== */
     property alias view: table_view
     property alias bodyItem: body_overlay
     property alias bodyOverlay: body_overlay
@@ -23,7 +23,17 @@ Rectangle {
     property alias boundsBehavior: table_view.boundsBehavior
     property alias columnSpacing: table_view.columnSpacing
     property alias rowSpacing: table_view.rowSpacing
-    // ==================== geometry / style ====================
+    /* 覆盖层使用稳定的视口几何，调用方无需访问内部 TableView/Header。 */
+    readonly property real viewportX: table_view.x
+    readonly property real viewportY: table_view.y
+    readonly property real viewportWidth: table_view.width
+    readonly property real viewportHeight: table_view.height
+    readonly property real verticalHeaderWidth: header_vertical.width
+    readonly property real frameX: x
+    readonly property real frameY: y
+    readonly property real frameWidth: width
+    readonly property real frameHeight: height
+    /* ==================== 几何与样式 ==================== */
     property var columnSource: []
     property var columnWidthProvider: undefined
     property var rowHeightProvider: undefined
@@ -51,8 +61,17 @@ Rectangle {
     property color selectedBorderColor: QuiColor.Highlight
     property bool hoverEnabled: true
     property bool rowSelectionEnabled: true
-    // ==================== data-driven API ====================
+    /* ==================== 数据 API ==================== */
     property var dataSource: undefined
+    /**
+     * @brief 可选的直接模型。
+     *
+     * 设置后跳过 QVariantMap 行缓存，TableView 直接消费 QAbstractItemModel。
+     */
+    property var externalModel: null
+    property Component externalCellDelegate: null
+    property var externalCellOptionsProvider: null
+    property var externalCellClickHandler: null
     readonly property alias sourceModel: table_source_model
     readonly property var current: d.current
 
@@ -104,7 +123,7 @@ Rectangle {
         }
     }
 
-    // ==================== internal models ====================
+    /* ==================== 内部模型 ==================== */
     QuiTableModel {
         id: table_source_model
     }
@@ -119,7 +138,7 @@ Rectangle {
         columns: [TableModelColumn { display: "rowIndex" }]
     }
 
-    // ==================== data plumbing ====================
+    /* ==================== 数据连接 ==================== */
     onDataSourceChanged: {
         if (d.destroying) {
             return
@@ -139,6 +158,11 @@ Rectangle {
         rebuildHeaderModel()
         Qt.callLater(control.forceLayout)
     }
+    onExternalModelChanged: {
+        if (d.destroying)
+            return
+        Qt.callLater(control.forceLayout)
+    }
     onStartRowIndexChanged: updateRowIndex()
 
     function syncModel() {
@@ -155,10 +179,10 @@ Rectangle {
             let emptyOldModel = d.headerColumnModel
             d.headerColumnModel = null
             if (emptyOldModel) {
-                // Let TableView process the null model before destroying the
-                // dynamically-created TableModel.  Immediate destruction can
-                // leave QQuickTableViewPrivate::syncViewportRect polishing a
-                // stale header model during a data reset.
+                /*
+                 * 先让 TableView 处理空模型，再销毁动态创建的 TableModel。
+                 * 立即销毁会让 Qt Quick TableView 在数据重置时仍访问旧表头。
+                 */
                 Qt.callLater(function() {
                     if (!d.destroying && emptyOldModel) {
                         emptyOldModel.destroy()
@@ -201,7 +225,7 @@ Rectangle {
         header_row_model.rows = rows
     }
 
-    // ==================== layout ====================
+    /* ==================== 布局 ==================== */
     function forceLayout() {
         if (d.destroying) {
             return
@@ -322,9 +346,10 @@ Rectangle {
         }
 
         if (totalMinimum > available) {
-            // Preserve an explicitly resized column even when the viewport is
-            // narrower than the sum of all minimum widths.  The table can
-            // overflow and scroll instead of snapping it back to minimum.
+            /*
+             * 视口小于所有最小宽度时仍保留显式调整过的列宽，
+             * 让表格滚动而不是把用户设置恢复为最小值。
+             */
             return d.columnWidths[column] !== undefined
                    ? widths[column] : (columnStretchEnabled(column) ? minimums[column] : widths[column])
         }
@@ -411,8 +436,7 @@ Rectangle {
             available -= columnMinimumWidth(i)
         }
 
-        // If the other columns already consume the viewport, allow this
-        // column to grow into the scrollable area.
+        /* 其他列已经占满视口时，允许当前列扩展到可滚动区域。 */
         if (available < columnMinimumWidth(column)) {
             return maximumWidth
         }
@@ -513,7 +537,7 @@ Rectangle {
         table_view.model = null
     }
 
-    // ==================== data-driven operations ====================
+    /* ==================== 数据操作 ==================== */
     function closeEditor() {
         d.editPosition = undefined
         d.editDelegate = undefined
@@ -596,6 +620,28 @@ Rectangle {
         insertRow(table_source_model.rowCount, obj)
     }
 
+    /**
+     * @brief 生成直接模型单元格的委托数据。
+     * @param rowIndex 行下标。
+     * @param columnIndex 列下标。
+     * @param modelData 当前单元格的模型角色对象。
+     * @return 委托组件和其参数。
+     */
+    function externalCellDisplay(rowIndex, columnIndex, modelData) {
+        if (!externalCellDelegate)
+            return ({})
+        let options = {}
+        if (externalCellOptionsProvider && typeof externalCellOptionsProvider === "function")
+            options = externalCellOptionsProvider(rowIndex, columnIndex, modelData) || ({})
+        return { comId: externalCellDelegate, options: options }
+    }
+
+    function applyLoaderOptions(loader) {
+        if (!loader || !loader.item || loader.item.options === undefined)
+            return
+        loader.item.options = loader.options || ({})
+    }
+
     function currentIndex() {
         let index = -1
         if (!d.current) {
@@ -618,7 +664,7 @@ Rectangle {
         }
     }
 
-    // ==================== default header delegates ====================
+    /* ==================== 默认表头委托 ==================== */
     Component {
         id: com_header_text
 
@@ -657,9 +703,13 @@ Rectangle {
             property var titleValue: columnMap ? columnMap.title : undefined
 
             QuiLoader {
+                id: header_loader
                 anchors.fill: parent
                 property var display: titleValue
-                property var options: (typeof display === "object" && display && display.options) ? display.options : ({})
+                property var options: (typeof display === "object" && display && display.options)
+                                      ? display.options : ({})
+                onLoaded: control.applyLoaderOptions(header_loader)
+                onOptionsChanged: control.applyLoaderOptions(header_loader)
                 sourceComponent: (typeof display === "object" && display && display.comId)
                                  ? display.comId : com_header_text
             }
@@ -714,7 +764,7 @@ Rectangle {
         }
     }
 
-    // ==================== data-driven body delegate ====================
+    /* ==================== 数据表体委托 ==================== */
     Component {
         id: com_text
 
@@ -836,13 +886,19 @@ Rectangle {
 
         MouseArea {
             id: item_table_mouse
-            property var _model: model
+            property var _model: typeof model === "undefined" || model === null ? null : model
             property var currentTableView: TableView.view
-            property var rowModel: _model ? _model.rowModel : null
-            property var columnModel: _model ? _model.columnModel : null
-            property var display: rowModel && columnModel ? rowModel[columnModel.dataIndex] : undefined
-            readonly property bool isObject: typeof display === "object" && display !== null
-            readonly property var options: isObject && display.options ? display.options : ({})
+            property var rowModel: control.externalModel ? null : (_model ? _model.rowModel : null)
+            property var columnModel: control.externalModel
+                                       ? control.columnOptions(column)
+                                       : (_model ? _model.columnModel : null)
+            property var cellValue: control.externalModel
+                                    ? (control.externalCellDisplay(row, column, _model) || ({}))
+                                    : (rowModel && columnModel ? rowModel[columnModel.dataIndex] : undefined)
+            readonly property bool isObject: typeof cellValue === "object" && cellValue !== null
+            readonly property var options: isObject && cellValue.options
+                                           && typeof cellValue.options === "object"
+                                           ? cellValue.options : ({})
             readonly property bool isRowSelected: !!(
                 control.rowSelectionEnabled && rowModel && d.current && rowModel._key === d.current._key)
             readonly property bool isFrozenCell: !!(columnModel && columnModel.frozen === true)
@@ -868,14 +924,19 @@ Rectangle {
             onCanceled: d.rowHoverIndex = -1
             onPressed: control.closeEditor()
             onDoubleClicked: {
-                if (isObject || !rowModel || !columnModel) {
+                if (control.externalModel || isObject || !rowModel || !columnModel) {
                     return
                 }
-                loader_edit.display = display
+                loader_edit.display = cellValue
                 d.editDelegate = d.getEditDelegate(column)
                 d.editPosition = { _key: rowModel._key, row: row, column: column }
             }
             onClicked: function(event) {
+                if (control.externalModel && typeof control.externalCellClickHandler === "function") {
+                    control.externalCellClickHandler(row, column, item_table_mouse.options)
+                    event.accepted = true
+                    return
+                }
                 if (rowModel && control.rowSelectionEnabled) {
                     d.current = rowModel
                 }
@@ -911,13 +972,16 @@ Rectangle {
                 anchors.fill: parent
                 property var tableView: control
                 property var model: item_table_mouse._model
-                property var display: item_table_mouse.display
+                property var display: item_table_mouse.cellValue
                 property var rowModel: item_table_mouse.rowModel
                 property var columnModel: item_table_mouse.columnModel
                 property int row: typeof item_table_mouse.row === "number" ? item_table_mouse.row : 0
                 property int column: typeof item_table_mouse.column === "number" ? item_table_mouse.column : 0
                 property var options: item_table_mouse.options
-                sourceComponent: item_table_mouse.isObject ? display.comId : com_text
+                onLoaded: control.applyLoaderOptions(item_table_loader)
+                onOptionsChanged: control.applyLoaderOptions(item_table_loader)
+                sourceComponent: item_table_mouse.isObject && display && display.comId
+                                 ? display.comId : com_text
             }
 
             Item {
@@ -982,7 +1046,7 @@ Rectangle {
         }
     }
 
-    // ==================== chrome ====================
+    /* ==================== 外观 ==================== */
     Rectangle {
         id: header_corner
         visible: header_horizontal.visible && header_vertical.visible
@@ -1052,7 +1116,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        model: d.destroying ? null : table_sort_model
+        model: d.destroying ? null : (control.externalModel ? control.externalModel : table_sort_model)
         delegate: d.destroying ? null : com_table_delegate
 
         onRowsChanged: {
