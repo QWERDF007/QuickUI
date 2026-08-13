@@ -74,19 +74,19 @@ QuiComboBox {
                 value: _stringValue(entry.value),
                 level: 0,
                 expandable: subs.length > 0,
-                expanded: _expandedIndex === i,
+                expanded: false,
             })
-            if (_expandedIndex === i) {
-                for (let j = 0; j < subs.length; ++j) {
-                    flat.push({
-                        label: String(subs[j].label),
-                        displayLabel: label + " / " + String(subs[j].label),
-                        value: _stringValue(subs[j].value),
-                        level: 1,
-                        expandable: false,
-                        expanded: false,
-                    })
-                }
+            // 扁平列表始终包含全部二级项（只用于内容框显示与值定位），
+            // 展开/收起由 popup 的 _level0Model/_level1Model 独立控制。
+            for (let j = 0; j < subs.length; ++j) {
+                flat.push({
+                    label: String(subs[j].label),
+                    displayLabel: label + " / " + String(subs[j].label),
+                    value: _stringValue(subs[j].value),
+                    level: 1,
+                    expandable: false,
+                    expanded: false,
+                })
             }
         }
         _flatModel = flat
