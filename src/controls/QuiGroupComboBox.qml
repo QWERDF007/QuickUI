@@ -11,6 +11,7 @@ import quickui
  * optionGroups 为两级结构：[{label, value, subOptions: [{label, value}]}]
  * - 一级项带 subOptions 时显示展开箭头，点击后在右侧展开二级子项；
  * - 叶子项（value 非空）点击后发送 commit(value)。
+ * - visible 为 false 的项只用于保持当前值显示，不出现在一级菜单中。
  *
  * 复用 QuiComboBox 的标准机制：扁平化列表作为 model（textRole 显示
  * displayLabel，valueRole 取 value），内容框显示由引擎的 currentIndex/
@@ -40,8 +41,11 @@ QuiComboBox {
         const l0 = []
         for (let i = 0; i < optionGroups.length; ++i) {
             const entry = optionGroups[i]
+            if (entry && entry.visible === false)
+                continue
             const subs = entry.subOptions || []
             l0.push({
+                sourceIndex: i,
                 label: String(entry.label),
                 value: _stringValue(entry.value),
                 expandable: subs.length > 0,
@@ -68,9 +72,11 @@ QuiComboBox {
             const entry = optionGroups[i]
             const subs = entry.subOptions || []
             const label = String(entry.label)
+            const displayLabel = entry.displayLabel !== undefined
+                    ? String(entry.displayLabel) : label
             flat.push({
                 label: label,
-                displayLabel: label,
+                displayLabel: displayLabel,
                 value: _stringValue(entry.value),
                 level: 0,
                 expandable: subs.length > 0,
@@ -180,8 +186,9 @@ QuiComboBox {
                         // 悬浮一级项即展开/收起二级菜单。
                         if (!hovered)
                             return
+                        const groupIndex = modelData.sourceIndex
                         if (modelData.expandable) {
-                            control._expandedIndex = index
+                            control._expandedIndex = groupIndex
                             control._rebuildLevels()
                             subPopup.open()
                         } else {
@@ -196,8 +203,9 @@ QuiComboBox {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
+                        const groupIndex = modelData.sourceIndex
                         if (modelData.expandable) {
-                            control._expandedIndex = index
+                            control._expandedIndex = groupIndex
                             control._rebuildLevels()
                             subPopup.open()
                         } else if (modelData.value.length > 0) {
