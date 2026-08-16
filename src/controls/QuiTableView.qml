@@ -89,7 +89,6 @@ Rectangle {
         property var columnWidths: ({})
         property int columnWidthRevision: 0
         property var rowHeights: ({})
-        property var headerColumnModel: null
         property bool destroying: false
         property var current
         property int rowHoverIndex: -1
@@ -128,9 +127,17 @@ Rectangle {
         id: table_source_model
     }
 
+    QuiTableModel {
+        id: header_column_model
+        /* 表头视图始终持有同一个模型对象，列变化只触发模型数据重置。 */
+        columnSource: control.columnSource
+        rows: control.columnSource.length > 0 ? [{}] : []
+    }
+
     QuiTableSortProxyModel {
         id: table_sort_model
-        model: table_source_model
+        /* TableView 始终绑定该代理，数据源变化只在代理内部完成。 */
+        model: control.externalModel ? control.externalModel : table_source_model
     }
 
     TableModel {
@@ -155,7 +162,6 @@ Rectangle {
             return
         }
         table_source_model.columnSource = control.columnSource
-        rebuildHeaderModel()
         Qt.callLater(control.forceLayout)
     }
     onExternalModelChanged: {
@@ -171,50 +177,6 @@ Rectangle {
         }
         updateRowIndex()
         Qt.callLater(control.forceLayout)
-    }
-
-    function rebuildHeaderModel() {
-        let count = control.columnSource.length
-        if (count === 0) {
-            let emptyOldModel = d.headerColumnModel
-            d.headerColumnModel = null
-            if (emptyOldModel) {
-                /*
-                 * 先让 TableView 处理空模型，再销毁动态创建的 TableModel。
-                 * 立即销毁会让 Qt Quick TableView 在数据重置时仍访问旧表头。
-                 */
-                Qt.callLater(function() {
-                    if (!d.destroying && emptyOldModel) {
-                        emptyOldModel.destroy()
-                    }
-                })
-            }
-            return
-        }
-        let headerRow = {}
-        let qml = 'import Qt.labs.qmlmodels 1.0\nTableModel {\n'
-        for (let i = 0; i < count; ++i) {
-            let item = control.columnSource[i]
-            if (item && item.dataIndex === undefined) {
-                item.dataIndex = String(i)
-            }
-            headerRow[item.dataIndex] = item
-            qml += 'TableModelColumn { display: '
-                    + JSON.stringify(String(item.dataIndex)) + ' }\n'
-        }
-        qml += '}'
-
-        let oldModel = d.headerColumnModel
-        let newModel = Qt.createQmlObject(qml, control, "QuiTableHeaderModel")
-        newModel.rows = [headerRow]
-        d.headerColumnModel = newModel
-        if (oldModel) {
-            Qt.callLater(function() {
-                if (!d.destroying && oldModel) {
-                    oldModel.destroy()
-                }
-            })
-        }
     }
 
     function updateRowIndex() {
@@ -453,7 +415,8 @@ Rectangle {
         if (d.destroying) {
             return []
         }
-        let count = table_view.columns
+        /* 冻结列属于列结构，不能跟随数据模型的瞬时列数增减。 */
+        let count = control.columnSource ? control.columnSource.length : 0
         let result = []
         for (let column = 0; column < count; ++column) {
             if (isFrozenColumn(column)) {
@@ -499,7 +462,8 @@ Rectangle {
                 minimumX += columnWidth(i)
             }
         }
-        for (let i = column + 1; i < table_view.columns; ++i) {
+        let columnCount = control.columnSource ? control.columnSource.length : 0
+        for (let i = column + 1; i < columnCount; ++i) {
             if (isFrozenColumn(i)) {
                 maximumX -= columnWidth(i)
             }
@@ -698,8 +662,9 @@ Rectangle {
             border.color: control.borderColor
             border.width: control.showGridLines ? 1 : 0
 
-            property var columnMap: (_model && _model.display && typeof _model.display.title !== "undefined")
-                                    ? _model.display : null
+            property var columnMap: (_model && _model.columnModel
+                                     && typeof _model.columnModel.title !== "undefined")
+                                    ? _model.columnModel : null
             property var titleValue: columnMap ? columnMap.title : undefined
 
             QuiLoader {
@@ -1072,8 +1037,8 @@ Rectangle {
         boundsBehavior: Flickable.StopAtBounds
         columnSpacing: table_view.columnSpacing
         syncDirection: Qt.Horizontal
-        syncView: d.destroying || table_view.rows === 0 ? null : table_view
-        model: d.destroying ? null : d.headerColumnModel
+        syncView: d.destroying ? null : table_view
+        model: header_column_model
         delegate: default_header_delegate
 
         onContentXChanged: {
@@ -1116,7 +1081,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        model: d.destroying ? null : (control.externalModel ? control.externalModel : table_sort_model)
+        model: d.destroying ? null : table_sort_model
         delegate: d.destroying ? null : com_table_delegate
 
         onRowsChanged: {
@@ -1189,7 +1154,7 @@ Rectangle {
                     boundsBehavior: Flickable.StopAtBounds
                     interactive: false
                     contentWidth: width
-                    model: d.destroying ? null : d.headerColumnModel
+                    model: header_column_model
                     delegate: default_header_delegate
                 }
 
@@ -1206,7 +1171,7 @@ Rectangle {
                     boundsBehavior: Flickable.StopAtBounds
                     syncView: d.destroying ? null : table_view
                     syncDirection: Qt.Vertical
-                    model: d.destroying ? null : table_view.model
+                    model: d.destroying ? null : table_sort_model
                     delegate: d.destroying ? null : table_view.delegate
                     contentWidth: width
                     rowSpacing: table_view.rowSpacing
