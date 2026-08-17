@@ -54,6 +54,7 @@ Rectangle {
     property color headerTextColor: QuiColor.FontPrimary
     property color borderColor: QuiColor.Border
     property bool showGridLines: false
+    property color rowColor: color
     property bool zebraEnabled: true
     property color zebraColor: Qt.lighter(QuiColor.Primary, 1.3)
     property color hoverColor: Qt.rgba(1, 1, 1, 0.06)
@@ -924,9 +925,9 @@ Rectangle {
                         return control.hoverColor
                     }
                     if (row % 2 !== 0) {
-                        return control.color
+                        return control.rowColor
                     }
-                    return control.zebraEnabled ? control.zebraColor : control.color
+                    return control.zebraEnabled ? control.zebraColor : control.rowColor
                 }
                 border.color: control.borderColor
                 border.width: control.showGridLines ? 1 : 0
