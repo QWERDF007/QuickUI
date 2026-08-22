@@ -14,6 +14,7 @@ QuiPopup {
     property bool useNeutralButton: false
     property bool useNegativeButton: true
     property bool usePositiveButton: true
+    property bool positiveButtonEnabled: true
     property int messageTextFormart: Text.AutoText
     property var onNeutralClickListener // 按钮点击监听
     property var onNegativeClickListener
@@ -118,6 +119,7 @@ QuiPopup {
                 QuiButton { // 确认按钮
                     id:positive_btn
                     visible: usePositiveButton
+                    enabled: control.positiveButtonEnabled
                     text: positiveText
                     onClicked: {
                         if(control.onPositiveClickListener){
