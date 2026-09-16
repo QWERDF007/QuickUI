@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Controls.impl
@@ -9,7 +9,7 @@ import quickui
 T.MenuItem {
     property Component iconDelegate : com_icon
     property int iconSpacing: 5
-    property int iconSource
+    property int iconSource: (subMenu && subMenu.iconSource !== undefined) ? subMenu.iconSource : 0
     property int iconSize: 16
     property color disabledColor: "#6E6E6E"
     property color textColor: QuiColor.FontPrimary
@@ -52,7 +52,7 @@ T.MenuItem {
                 id:loader_icon
                 sourceComponent: iconDelegate
                 anchors.verticalCenter: parent.verticalCenter
-                visible: status === Loader.Ready
+                visible: status === Loader.Ready && (iconDelegate !== com_icon || control.iconSource > 0)
             }
             QuiText {
                 id:content_text

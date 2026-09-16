@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.impl
 import QtQuick.Templates as T
@@ -7,6 +7,7 @@ import quickui
 
 T.Menu {
     property bool animationEnabled: true
+    property int iconSource: 0
     id: control
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             contentWidth + leftPadding + rightPadding)
