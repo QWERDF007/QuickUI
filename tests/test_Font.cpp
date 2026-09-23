@@ -10,8 +10,8 @@ void FontTest::defaults()
     QVERIFY(font != nullptr);
 
     QCOMPARE(font->Caption().pixelSize(), 12);
-    QCOMPARE(font->Body().pixelSize(), 16);
-    QCOMPARE(font->BodyStrong().pixelSize(), 16);
+    QCOMPARE(font->Body().pixelSize(), 13);
+    QCOMPARE(font->BodyStrong().pixelSize(), 13);
     QCOMPARE(font->BodyStrong().weight(), QFont::DemiBold);
     QCOMPARE(font->Subtitle().pixelSize(), 20);
     QCOMPARE(font->Title().pixelSize(), 28);

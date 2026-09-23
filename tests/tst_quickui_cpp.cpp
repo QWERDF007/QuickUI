@@ -1,10 +1,10 @@
 #include "test_runner.h"
 
-#include <QCoreApplication>
+#include <QGuiApplication>
 
 int main(int argc, char **argv)
 {
-    QCoreApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
     return runAllCppTests(argc, argv);
 }
 

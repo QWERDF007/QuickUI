@@ -11,6 +11,8 @@ class ColorTest : public QObject
 private slots:
     void defaults();
     void changeSignalsAreValueSensitive();
+    void lightThemeColors();
+    void themeModeSwitching();
 };
 
 REGISTER_TEST(ColorTest);

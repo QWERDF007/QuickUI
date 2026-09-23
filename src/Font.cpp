@@ -10,11 +10,11 @@ QuiFont::QuiFont(QObject *parent)
     Caption(caption);
 
     QFont body;
-    body.setPixelSize(16);
+    body.setPixelSize(13);
     Body(body);
 
     QFont body_strong;
-    body_strong.setPixelSize(16);
+    body_strong.setPixelSize(13);
     body_strong.setWeight(QFont::DemiBold);
     BodyStrong(body_strong);
 

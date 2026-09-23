@@ -7,8 +7,9 @@ import quickui
 T.ComboBox {
     id: control
     signal commit(string text)
-    property color normalColor: QuiColor.Primary
-    property color hoverColor: QuiColor.Hovered
+    property color normalColor: QuiColor.CardBackground
+    property color hoverColor: QuiColor.ItemHover
+    property color disableColor: QuiColor.ItemDisabled
     // property alias bg: _bg
     property alias content: _content
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
@@ -62,19 +63,20 @@ T.ComboBox {
         topPadding: 6 - control.padding
         bottomPadding: 6 - control.padding
         renderType: Text.NativeRendering
-        selectionColor: Utils.withOpacity(control.normalColor, 0.5)
+        selectionColor: Utils.withOpacity(QuiColor.Primary, 0.5)
         selectedTextColor: color
         text: control.editable ? control.editText : control.displayText
         autoScroll: control.editable
         font: control.font
         readOnly: control.down
-        color: QuiColor.FontPrimary
+        color: !control.enabled ? QuiColor.FontCaption : QuiColor.FontPrimary
         inputMethodHints: control.inputMethodHints
         validator: control.validator
         selectByMouse: control.selectTextByMouse
         verticalAlignment: Text.AlignVCenter
         background: QuiControlBackground {
             id: _bg
+            visible: control.editable
             border.width: 1
             bottomMargin: !control.editable ? 1 : contentItem && contentItem.activeFocus ? 2 : 1
             color: control.hovered ? control.hoverColor : control.normalColor
@@ -93,6 +95,8 @@ T.ComboBox {
     background: Rectangle {
         implicitWidth: 140
         implicitHeight: 32
+        border.color: QuiColor.CardBorder
+        border.width: 1
         visible: !control.flat || control.down
         radius: 4
         QuiFocusRectangle{
@@ -100,7 +104,7 @@ T.ComboBox {
             radius:4
             anchors.margins: -2
         }
-        color: control.hovered ? control.hoverColor : control.normalColor
+        color: !control.enabled ? control.disableColor : (control.hovered ? control.hoverColor : control.normalColor)
     }
 
     popup: T.Popup {
@@ -140,7 +144,7 @@ T.ComboBox {
         }
         background: Rectangle {
             color: control.normalColor
-            border.color: Qt.darker(control.normalColor, 1.2)
+            border.color: QuiColor.CardBorder
             border.width: 1
             radius: 5
             QuiShadow {

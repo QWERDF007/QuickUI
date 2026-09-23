@@ -19,7 +19,7 @@ T.Frame {
     background: Rectangle {
         id: frameBackground
         radius: 4
-        border.color: QuiColor.Border
-        color: QuiColor.Primary
+        border.color: QuiColor.CardBorder
+        color: QuiColor.CardBackground
     }
 }

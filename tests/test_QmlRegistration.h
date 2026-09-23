@@ -11,6 +11,7 @@ class QmlRegistrationTest : public QObject
 private slots:
     void singletonFactoryUsesCppOwnership();
     void enumMetaObjectsAreExported();
+    void componentsCanBeInstantiated();
 };
 
 REGISTER_TEST(QmlRegistrationTest);

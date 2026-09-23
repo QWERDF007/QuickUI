@@ -26,8 +26,8 @@ T.ItemDelegate {
     background: Rectangle {
         implicitWidth: 100
         implicitHeight: 30
-        color: QuiColor.Hovered
-        visible: control.down || control.highlighted || control.visualFocus
+        color: control.highlighted ? (QuiColor.themeMode === QuiColor.Dark ? QuiColor.Hovered : Qt.rgba(0, 0, 0, 0.08)) : QuiColor.Hovered
+        visible: control.down || control.highlighted || control.visualFocus || control.hovered
     }
 }
 

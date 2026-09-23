@@ -39,3 +39,29 @@ void QmlRegistrationTest::enumMetaObjectsAreExported()
     QCOMPARE(iconEnum.keyToValue("Accept"), 0xe8fb);
 }
 
+void QmlRegistrationTest::componentsCanBeInstantiated()
+{
+    QQmlEngine engine;
+    engine.addImportPath(QCoreApplication::applicationDirPath() + "/qml");
+    engine.addImportPath(QCoreApplication::applicationDirPath() + "/../qml");
+
+    const QStringList qmlSnippets = {
+        QStringLiteral("import QtQuick\nimport quickui\nQuiCard { width: 300; height: 100 }"),
+        QStringLiteral("import QtQuick\nimport quickui\nQuiBadge { count: 6 }"),
+        QStringLiteral("import QtQuick\nimport quickui\nQuiFrame { width: 200; height: 50 }"),
+        QStringLiteral("import QtQuick\nimport quickui\nQuiFilledButton { text: 'Test' }"),
+        QStringLiteral("import QtQuick\nimport quickui\nQuiToolTip { text: 'Tip' }"),
+        QStringLiteral("import QtQuick\nimport quickui\nQuiDropImageArea { }"),
+        QStringLiteral("import QtQuick\nimport quickui\nQuiZoomBar { }")
+    };
+
+    for (const auto &snippet : qmlSnippets) {
+        QQmlComponent comp(&engine);
+        comp.setData(snippet.toUtf8(), QUrl());
+        QVERIFY2(!comp.isError(), qPrintable(comp.errorString()));
+        auto *obj = comp.create();
+        QVERIFY2(obj != nullptr, qPrintable(comp.errorString()));
+        delete obj;
+    }
+}
+

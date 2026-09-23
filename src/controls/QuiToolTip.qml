@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls.impl
 import QtQuick.Templates as T
 
@@ -20,12 +20,16 @@ T.ToolTip {
         text: control.text
         font: control.font
         wrapMode: Text.Wrap
+        color: QuiColor.FontPrimary
     }
     background: Rectangle {
         color: QuiColor.ToolTip
         radius: 3
+        border.color: QuiColor.CardBorder
+        border.width: 1
         QuiShadow{
             radius: 3
+            elevation: 2
         }
     }
 }
