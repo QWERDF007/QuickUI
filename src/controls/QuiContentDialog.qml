@@ -82,57 +82,51 @@ QuiPopup {
                     }
                 }
             }
-            Rectangle { // 操作按钮布局
-                id: layout_actions
+            RowLayout{ // 操作按钮布局
                 Layout.fillWidth: true
                 Layout.preferredHeight: 60
-                radius: 5
-                color: QuiColor.WindowActiveBackground
-                RowLayout{
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 10
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                    QuiButton { // 关闭按钮
-                        id:neutral_btn
-                        visible: useNeutralButton
-                        text: neutralText
-                        onClicked: {
-                            if(control.onNeutralClickListener){
-                                control.onNeutralClickListener()
-                            }else{
-                                neutralClicked()
-                                control.close()
-                            }
+                Layout.margins: 10
+                spacing: 10
+                Item {
+                    Layout.fillWidth: true
+                }
+                QuiButton { // 关闭按钮
+                    id:neutral_btn
+                    visible: useNeutralButton
+                    text: neutralText
+                    onClicked: {
+                        if(control.onNeutralClickListener){
+                            control.onNeutralClickListener()
+                        }else{
+                            neutralClicked()
+                            control.close()
                         }
                     }
-                    QuiButton { // 取消按钮
-                        id: negative_btn
-                        visible: useNegativeButton
-                        text: negativeText
-                        onClicked: {
-                            if(control.onNegativeClickListener){
-                                control.onNegativeClickListener()
-                            }else{
-                                negativeClicked()
-                                control.close()
-                            }
+                }
+                QuiButton { // 取消按钮
+                    id: negative_btn
+                    visible: useNegativeButton
+                    text: negativeText
+                    onClicked: {
+                        if(control.onNegativeClickListener){
+                            control.onNegativeClickListener()
+                        }else{
+                            negativeClicked()
+                            control.close()
                         }
                     }
-                    QuiFilledButton { // 确认按钮
-                        id:positive_btn
-                        visible: usePositiveButton
-                        enabled: control.positiveButtonEnabled
-                        text: positiveText
-                        onClicked: {
-                            if(control.onPositiveClickListener){
-                                control.onPositiveClickListener()
-                            }else{
-                                positiveClicked()
-                                control.close()
-                            }
+                }
+                QuiButton { // 确认按钮
+                    id:positive_btn
+                    visible: usePositiveButton
+                    enabled: control.positiveButtonEnabled
+                    text: positiveText
+                    onClicked: {
+                        if(control.onPositiveClickListener){
+                            control.onPositiveClickListener()
+                        }else{
+                            positiveClicked()
+                            control.close()
                         }
                     }
                 }
