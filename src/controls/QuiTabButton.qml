@@ -11,9 +11,12 @@ TabButton {
     property color hoverColor: QuiColor.Hovered
     property color pressedColor: Qt.darker(QuiColor.Hovered, 1.08)
     property color checkedColor: "transparent"
+    property color checkedHoverColor: checkedColor === "transparent" ? hoverColor : Qt.lighter(checkedColor, 1.15)
+    property color checkedPressedColor: checkedColor === "transparent" ? pressedColor : Qt.darker(checkedColor, 1.15)
     property color normalTextColor: QuiColor.FontPrimary
     property color checkedTextColor: QuiColor.Highlight
-    property color textColor: checked ? checkedTextColor : normalTextColor
+    property color hoverTextColor: checked ? checkedTextColor : QuiColor.Highlight
+    property color textColor: checked ? checkedTextColor : (control.hovered ? hoverTextColor : normalTextColor)
     property color indicatorColor: QuiColor.Highlight
     property bool showIndicator: false
     property int indicatorHeight: 2
@@ -38,7 +41,17 @@ TabButton {
         implicitHeight: 32
         implicitWidth: 60
         opacity: enabled ? 1 : 0.4
-        color: enabled ? (control.down ? control.pressedColor : control.hovered ? control.hoverColor : (control.checked ? control.checkedColor : control.normalColor)) : control.normalColor
+        color: {
+            if (!control.enabled) return control.normalColor
+            if (control.checked) {
+                if (control.down) return control.checkedPressedColor
+                if (control.hovered) return control.checkedHoverColor
+                return control.checkedColor
+            }
+            if (control.down) return control.pressedColor
+            if (control.hovered) return control.hoverColor
+            return control.normalColor
+        }
         radius: control.radius
         clip: true
 
