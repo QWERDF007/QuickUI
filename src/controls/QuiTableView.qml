@@ -1219,7 +1219,7 @@ Rectangle {
         z: 30
 
         Repeater {
-            model: d.destroying ? 0 : table_view.columns
+            model: d.destroying ? 0 : Math.max(0, table_view.columns)
 
             MouseArea {
                 id: resize_handle
