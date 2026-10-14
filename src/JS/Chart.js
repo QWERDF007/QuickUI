@@ -8335,6 +8335,28 @@ var positioners = {
             x: x,
             y: y
         };
+    },
+
+    cursor: function(elements, eventPosition) {
+        if (!elements || !elements.length) {
+            return false;
+        }
+        var x = 0;
+        var y = eventPosition ? eventPosition.y : 0;
+        var el = elements[0];
+        if (el && typeof el.tooltipPosition === 'function') {
+            var pos = el.tooltipPosition();
+            x = pos.x;
+            if (!eventPosition) {
+                y = pos.y;
+            }
+        } else if (eventPosition) {
+            x = eventPosition.x;
+        }
+        return {
+            x: x,
+            y: y
+        };
     }
 };
 
@@ -8771,7 +8793,11 @@ var exports$4 = core_element.extend({
 
             var labelColors = [];
             var labelTextColors = [];
-            tooltipPosition = positioners[opts.position].call(me, active, me._eventPosition);
+            var positioner = typeof opts.position === 'function' ? opts.position : positioners[opts.position];
+            if (!positioner) {
+                positioner = positioners.average;
+            }
+            tooltipPosition = positioner.call(me, active, me._eventPosition);
 
             var tooltipItems = [];
             for (i = 0, len = active.length; i < len; ++i) {
