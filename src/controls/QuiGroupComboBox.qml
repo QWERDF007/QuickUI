@@ -251,18 +251,15 @@ QuiComboBox {
 
     T.Popup {
         id: subPopup
-        x: popup.x + popup.width
-        y: popup.y
+        parent: popup.contentItem
+        x: parent.width
+        y: 0
+        closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutsideParent
         width: Math.max(level1List.implicitWidth, 130)
         height: Math.min(level1List.contentHeight + 8,
                          Math.max(0, (control.Window ? control.Window.height : level1List.contentHeight) - 40))
         topMargin: 6
         bottomMargin: 6
-
-        onClosed: {
-            // 二级菜单单独被关闭（点击外部）时，一级菜单一并收起，行为与整体菜单一致。
-            popup.close()
-        }
 
         contentItem: ListView {
             id: level1List

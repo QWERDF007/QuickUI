@@ -1,28 +1,22 @@
 ﻿import QtQuick
-import QtQuick.Controls
 
 import quickui
 
-QuiControlBackground {
+Rectangle {
+    id: control
     property Item inputItem
-    id:control
-    color: "red"
+    property bool hovered: false
+    property bool invalid: false
+
+    implicitWidth: 200
+    implicitHeight: 32
+    radius: 4
     border.width: 1
-    gradient: Gradient {
-        GradientStop { position: 0.0; color: d.startColor }
-        GradientStop { position: control.height > 0 ? Math.max(0, 1 - d.offsetSize / control.height) : 0; color: d.startColor }
-        GradientStop { position: 1.0; color: d.endColor }
-    }
-    bottomMargin: inputItem && inputItem.activeFocus ? 2 : 1
-    QtObject{
-        id:d
-        property int offsetSize  : inputItem && inputItem.activeFocus ? 2 : 3
-        property color startColor: Qt.rgba(232/255,232/255,232/255,1)
-        property color endColor: {
-            if(!control.enabled){
-                return d.startColor
-            }
-            return inputItem && inputItem.activeFocus ? QuiColor.Primary : Qt.rgba(132/255,132/255,132/255,1)
-        }
-    }
+    border.color: !enabled ? QuiColor.CardBorder
+                : invalid ? QuiColor.Error
+                : inputItem && inputItem.activeFocus ? QuiColor.Highlight
+                : hovered ? QuiColor.FontCaption : QuiColor.CardBorder
+    color: !enabled ? QuiColor.ItemDisabled
+         : invalid ? Qt.tint(QuiColor.CardBackground, Qt.rgba(QuiColor.Error.r, QuiColor.Error.g, QuiColor.Error.b, 0.09))
+         : hovered ? QuiColor.ItemHover : QuiColor.CardBackground
 }
