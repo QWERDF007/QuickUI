@@ -69,7 +69,7 @@ T.ComboBox {
         autoScroll: control.editable
         font: control.font
         readOnly: control.down
-        color: !control.enabled ? QuiColor.FontCaption : QuiColor.FontPrimary
+        color: !control.enabled || control.displayText === "请选择" ? QuiColor.FontCaption : QuiColor.FontPrimary
         inputMethodHints: control.inputMethodHints
         validator: control.validator
         selectByMouse: control.selectTextByMouse

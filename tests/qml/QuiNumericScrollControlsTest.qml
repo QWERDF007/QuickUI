@@ -261,6 +261,54 @@ Item {
             compare(editor.invalid, false)
         }
 
+        function test_spinEditorAlignedLabels() {
+            const editor = createTemporaryObject(spinEditorComponent, root)
+            verify(editor !== null)
+            editor.label = "X"
+            editor.labelWidth = 48
+            verify(waitForPolish(root.Window.window))
+            const left = editor.inputItem.mapToItem(editor, 0, 0).x
+            editor.label = "宽度"
+            verify(waitForPolish(root.Window.window))
+            compare(editor.inputItem.mapToItem(editor, 0, 0).x, left)
+            editor.label = ""
+            verify(waitForPolish(root.Window.window))
+            verify(editor.inputItem.mapToItem(editor, 0, 0).x < left)
+        }
+
+        function test_spinEditorConsumerRejectsBeforeCommit() {
+            const editor = createTemporaryObject(spinEditorComponent, root)
+            verify(editor !== null)
+            let accepted = false
+            let attempts = 0
+            let finished = 0
+            editor.commitValue = function(number) { attempts += 1; return accepted }
+            editor.editingFinished.connect(function() { finished += 1 })
+            editor.inputItem.forceActiveFocus()
+            editor.text = "7.5"
+            editor.commitDraft()
+            compare(editor.value, 5)
+            compare(editor.text, "7.5")
+            compare(editor.invalid, true)
+            compare(finished, 0)
+            editor.commitDraft()
+            compare(attempts, 2)
+            compare(editor.value, 5)
+            compare(editor.invalid, true)
+            accepted = true
+            editor.commitDraft()
+            compare(editor.value, 7.5)
+            compare(editor.invalid, false)
+            compare(finished, 1)
+            accepted = false
+            editor.stepBy(1)
+            compare(editor.value, 7.5)
+            compare(editor.invalid, true)
+            editor.cancelDraft()
+            compare(editor.text, "7.5")
+            compare(editor.invalid, false)
+        }
+
         function test_spinEditorEscapeRestoresCommittedValue() {
             const editor = createTemporaryObject(spinEditorComponent, root)
             verify(editor !== null)

@@ -7,6 +7,7 @@ Item {
     id: control
 
     property string label: ""
+    property real labelWidth: -1
     property real value: 0
     property real minValue: 0
     property real maxValue: 10000
@@ -14,6 +15,8 @@ Item {
     property int decimals: 0
     property bool readOnly: false
     property bool invalid: false
+    property bool flat: false
+    property var commitValue: null
     property font font: QuiFont.Body
     property alias text: field.text
     property alias inputItem: field.inputItem
@@ -104,6 +107,10 @@ Item {
 
     function acceptValue(number) {
         const rounded = roundTo(number, decimals)
+        if (commitValue !== null && commitValue(rounded) !== true) {
+            invalid = true
+            return
+        }
         _applying = true
         value = rounded
         _applying = false
@@ -169,12 +176,13 @@ Item {
             text: control.label
             font: control.font
             visible: control.label !== ""
-            Layout.preferredWidth: visible ? implicitWidth : 0
+            Layout.preferredWidth: visible ? (control.labelWidth >= 0 ? control.labelWidth : implicitWidth) : 0
             opacity: control.enabled ? 1 : 0.5
         }
 
         QuiStepperField {
             id: field
+            flat: control.flat
             Layout.fillWidth: true
             Layout.fillHeight: true
             readOnly: control.readOnly

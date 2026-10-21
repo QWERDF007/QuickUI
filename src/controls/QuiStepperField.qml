@@ -14,6 +14,7 @@ Item {
     property bool invalid: false
     property bool canDecrease: true
     property bool canIncrease: true
+    property bool flat: false
     property font font: QuiFont.Body
 
     signal decreaseRequested()
@@ -46,6 +47,8 @@ Item {
         inputItem: input
         hovered: hover.hovered
         invalid: control.invalid
+        border.width: control.flat ? 0 : 1
+        color: control.flat ? "transparent" : (!control.enabled ? QuiColor.ItemDisabled : invalid ? Qt.tint(QuiColor.CardBackground, Qt.rgba(QuiColor.Error.r, QuiColor.Error.g, QuiColor.Error.b, 0.09)) : hovered ? QuiColor.ItemHover : QuiColor.CardBackground)
 
         RowLayout {
             anchors.fill: parent
@@ -54,17 +57,23 @@ Item {
 
             QuiTextIconButton {
                 objectName: "stepperMinus"
-                Layout.preferredWidth: 24
+                Layout.preferredWidth: 28
                 Layout.fillHeight: true
                 iconSource: QuiFontIcon.CalculatorSubtract
                 iconSize: 12
                 radius: 2
                 normalColor: QuiColor.Transparent
-                hoverColor: Qt.lighter(QuiColor.Button, 1.3)
-                pressedColor: Qt.lighter(QuiColor.Button, 1.5)
+                hoverColor: QuiColor.ItemHover
+                pressedColor: Qt.darker(QuiColor.ItemHover, 1.05)
                 focusPolicy: Qt.NoFocus
                 enabled: control.enabled && !control.readOnly && !input.inputMethodComposing && control.canDecrease
                 onClicked: control.decreaseRequested()
+            }
+
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.fillHeight: true
+                color: QuiColor.CardBorder
             }
 
             TextInput {
@@ -118,16 +127,22 @@ Item {
                 }
             }
 
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.fillHeight: true
+                color: QuiColor.CardBorder
+            }
+
             QuiTextIconButton {
                 objectName: "stepperPlus"
-                Layout.preferredWidth: 24
+                Layout.preferredWidth: 28
                 Layout.fillHeight: true
                 iconSource: QuiFontIcon.Add
                 iconSize: 12
                 radius: 2
                 normalColor: QuiColor.Transparent
-                hoverColor: Qt.lighter(QuiColor.Button, 1.3)
-                pressedColor: Qt.lighter(QuiColor.Button, 1.5)
+                hoverColor: QuiColor.ItemHover
+                pressedColor: Qt.darker(QuiColor.ItemHover, 1.05)
                 focusPolicy: Qt.NoFocus
                 enabled: control.enabled && !control.readOnly && !input.inputMethodComposing && control.canIncrease
                 onClicked: control.increaseRequested()
