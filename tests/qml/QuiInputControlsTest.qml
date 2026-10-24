@@ -90,7 +90,26 @@ Item {
             compare(item.background.width, 0)
             compare(item.background.height, 0)
             verify(item.background.inputItem === item.input)
-            compare(item.background.bottomMargin, 1)
+            compare(item.background.border.width, 1)
+            compare(item.background.radius, 4)
+            compare(item.background.color.toString(), QuiColor.CardBackground.toString())
+            compare(item.background.border.color.toString(), QuiColor.CardBorder.toString())
+        }
+
+        function test_textBoxBackgroundStates() {
+            const item = createTemporaryObject(textBoxBackgroundComponent, root, { width: 200, height: 32 })
+            verify(item !== null)
+            item.input.forceActiveFocus()
+            compare(item.background.border.color.toString(), QuiColor.Highlight.toString())
+            root.forceActiveFocus()
+            item.background.hovered = true
+            compare(item.background.color.toString(), QuiColor.ItemHover.toString())
+            compare(item.background.border.color.toString(), QuiColor.FontCaption.toString())
+            item.background.invalid = true
+            compare(item.background.border.color.toString(), QuiColor.Error.toString())
+            item.background.enabled = false
+            compare(item.background.color.toString(), QuiColor.ItemDisabled.toString())
+            compare(item.background.border.color.toString(), QuiColor.CardBorder.toString())
         }
     }
 }

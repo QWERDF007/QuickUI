@@ -6,8 +6,7 @@ import quickui
 Text {
     id:control
     property alias textColor: control.color
-    renderType: Text.CurveRendering
-    renderTypeQuality: Text.VeryHighRenderTypeQuality
+    renderType: Text.NativeRendering
     font: QuiFont.Body
     color: QuiColor.FontPrimary
 }

@@ -62,6 +62,7 @@ public:
     Q_PROPERTY_AUTO(QColor, CardBorder)
     Q_PROPERTY_AUTO(QColor, BadgeBackground)
     Q_PROPERTY_AUTO(QColor, BadgeText)
+    Q_PROPERTY_AUTO(QColor, Error)
 
 private:
     explicit QuiColor(QObject *parent = nullptr);

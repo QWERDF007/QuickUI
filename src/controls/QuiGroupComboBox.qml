@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Basic
+import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Templates as T
 import quickui
@@ -22,6 +23,8 @@ QuiComboBox {
 
     property var optionGroups: []
     property string savedValue: ""
+    property var commitValue: null
+    readonly property bool _hasGroups: _level0Model.some(function(entry) { return entry.expandable })
     signal aboutToOpen()
 
     model: _flatModel
@@ -30,7 +33,10 @@ QuiComboBox {
 
     property var _flatModel: []
     property var _level0Model: []
-    property var _level1Model: []
+    readonly property var _level1Model: _expandedIndex >= 0 && _expandedIndex < optionGroups.length
+        ? (optionGroups[_expandedIndex].subOptions || []).map(function(entry) {
+            return { label: String(entry.label), value: _stringValue(entry.value) }
+        }) : []
     property int _expandedIndex: -1
 
     function _stringValue(value) {
@@ -53,17 +59,8 @@ QuiComboBox {
         }
         _level0Model = l0
 
-        if (_expandedIndex >= 0 && _expandedIndex < optionGroups.length) {
-            const subs = optionGroups[_expandedIndex].subOptions || []
-            const l1 = []
-            for (let j = 0; j < subs.length; ++j) {
-                l1.push({ label: String(subs[j].label), value: _stringValue(subs[j].value) })
-            }
-            _level1Model = l1
-        } else {
-            _level1Model = []
+        if (_expandedIndex >= optionGroups.length)
             _expandedIndex = -1
-        }
     }
 
     function _flatten() {
@@ -110,225 +107,152 @@ QuiComboBox {
     }
 
     function _commitValue(value) {
-        // 保持当前展开状态重建扁平列表，确保二级项也在其中可被定位。
-        _flatten()
-        for (let i = 0; i < _flatModel.length; ++i) {
-            if (String(_flatModel[i].value) === value) {
-                currentIndex = i
-                break
-            }
+        if (!enabled || !value) return false
+        const selected = _flatModel.findIndex(function(entry) { return !entry.expandable && entry.value === value })
+        if (selected < 0) return false
+        if (typeof commitValue === "function" && commitValue(value) !== true) {
+            _locateSelection()
+            return false
         }
+        currentIndex = _flatModel.findIndex(function(entry) { return !entry.expandable && entry.value === value })
         control.commit(value)
         popup.close()
+        return true
     }
 
-    onOptionGroupsChanged: {
-        _rebuildLevels()
-        _flatten()
+    function _activateGroup(row, focusOutputs) {
+        if (!enabled || row < 0 || row >= _level0Model.length) return
+        const entry = _level0Model[row]
+        level0List.currentIndex = row
+        _expandedIndex = entry.expandable ? entry.sourceIndex : -1
+        if (entry.expandable && focusOutputs) {
+            level1List.currentIndex = 0
+            level1List.forceActiveFocus()
+        } else if (!entry.expandable && focusOutputs) {
+            _commitValue(entry.value)
+        }
     }
 
-    onSavedValueChanged: {
-        // 未展开时跟随外部值变化（模型切换/参数联动）重定位显示。
-        if (!popup.opened)
-            _flatten()
+    onOptionGroupsChanged: { _rebuildLevels(); _flatten() }
+    onSavedValueChanged: _locateSelection()
+    onEnabledChanged: { if (!enabled) popup.close() }
+    Keys.onDownPressed: popup.open()
+    Keys.onUpPressed: popup.open()
+    Keys.onReturnPressed: popup.open()
+    Keys.onEnterPressed: popup.open()
+    Keys.onSpacePressed: popup.open()
+    Connections {
+        target: control.Window.window
+        function onActiveChanged() { if (target && !target.active) popup.close() }
     }
 
     popup: T.Popup {
         id: popup
         y: control.height
-        width: Math.max(control.width, level0List.implicitWidth)
-        height: Math.min(level0List.contentHeight + 8,
-                         Math.max(0, (control.Window ? control.Window.height : level0List.contentHeight) - 40))
-        topMargin: 6
-        bottomMargin: 6
-
+        width: Math.min(Math.max(control.width, 180) * (control._hasGroups ? 2 : 1) + 8,
+                        control.Window.window ? control.Window.window.width - 24 : 480)
+        height: Math.min(Math.max(level0List.contentHeight, level1List.contentHeight) + 8,
+                         Math.max(0, control.Window.window ? control.Window.window.height - 40 : 400))
+        padding: 4
+        margins: 6
+        focus: true
+        closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutside
         onAboutToShow: {
             control.aboutToOpen()
             control._expandedIndex = -1
             control._rebuildLevels()
             control._flatten()
         }
+        onOpened: { level0List.currentIndex = 0; level0List.forceActiveFocus() }
+        onClosed: control._expandedIndex = -1
 
-        onOpened: {
-            if (control._level1Model.length > 0)
-                subPopup.open()
-        }
-        onClosed: subPopup.close()
-
-        contentItem: ListView {
-            id: level0List
-            clip: true
-            implicitHeight: contentHeight
-            model: control._level0Model
-            boundsMovement: Flickable.StopAtBounds
-
-            delegate: Item {
-                width: level0List.width
-                height: 32
-                implicitWidth: Math.max(level0Text.implicitWidth + 16 + 26, 150)
-
-                required property var modelData
-
-                onImplicitWidthChanged: {
-                    level0List.implicitWidth = Math.max(level0List.implicitWidth, implicitWidth)
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 3
-                    color: level0Hover.hovered ? QuiColor.Hovered : "transparent"
-                }
-
-                HoverHandler {
-                    id: level0Hover
-                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                    onHoveredChanged: {
-                        // 悬浮一级项即展开/收起二级菜单。
-                        if (!hovered)
-                            return
-                        const groupIndex = modelData.sourceIndex
-                        if (modelData.expandable) {
-                            control._expandedIndex = groupIndex
-                            control._rebuildLevels()
-                            subPopup.open()
-                        } else {
-                            control._expandedIndex = -1
-                            control._rebuildLevels()
-                            subPopup.close()
-                        }
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        const groupIndex = modelData.sourceIndex
-                        if (modelData.expandable) {
-                            control._expandedIndex = groupIndex
-                            control._rebuildLevels()
-                            subPopup.open()
-                        } else if (modelData.value.length > 0) {
-                            control._commitValue(modelData.value)
-                        }
-                    }
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 6
-                    spacing: 6
-
-                    QuiText {
-                        id: level0Text
-                        Layout.fillWidth: true
+        contentItem: RowLayout {
+            spacing: 0
+            enabled: control.enabled
+            ListView {
+                id: level0List
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.preferredWidth: Math.max(control.width, 180)
+                clip: true
+                model: control._level0Model
+                boundsMovement: Flickable.StopAtBounds
+                keyNavigationEnabled: true
+                Keys.onRightPressed: control._activateGroup(currentIndex, true)
+                Keys.onReturnPressed: control._activateGroup(currentIndex, true)
+                Keys.onEnterPressed: control._activateGroup(currentIndex, true)
+                ScrollBar.vertical: QuiScrollBar {}
+                delegate: QuiItemDelegate {
+                    required property var modelData
+                    required property int index
+                    width: level0List.width
+                    height: 32
+                    text: modelData.label
+                    highlighted: level0List.currentIndex === index
+                    hoverEnabled: true
+                    font: control.font
+                    rightPadding: modelData.expandable ? 28 : 10
+                    contentItem: QuiText {
                         text: modelData.label
+                        font: control.font
                         elide: Text.ElideRight
-                        font: QuiFont.Body
-                        color: modelData.value.length > 0 && modelData.value === control.savedValue
-                               ? QuiColor.Highlight : QuiColor.FontPrimary
+                        verticalAlignment: Text.AlignVCenter
                     }
-
+                    onHoveredChanged: { if (hovered) control._activateGroup(index, false) }
+                    onClicked: control._activateGroup(index, true)
                     QuiTextIcon {
-                        Layout.preferredWidth: 16
+                        anchors.right: parent.right
+                        anchors.rightMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
                         visible: modelData.expandable
                         iconSource: QuiFontIcon.ChevronRightMed
-                        iconColor: QuiColor.FontPrimary
                         iconSize: 13
                     }
                 }
             }
-        }
-
-        background: Rectangle {
-            color: QuiColor.Primary
-            border.color: Qt.darker(QuiColor.Primary, 1.2)
-            border.width: 1
-            radius: 5
-        }
-    }
-
-    T.Popup {
-        id: subPopup
-        x: popup.x + popup.width
-        y: popup.y
-        width: Math.max(level1List.implicitWidth, 130)
-        height: Math.min(level1List.contentHeight + 8,
-                         Math.max(0, (control.Window ? control.Window.height : level1List.contentHeight) - 40))
-        topMargin: 6
-        bottomMargin: 6
-
-        onClosed: {
-            // 二级菜单单独被关闭（点击外部）时，一级菜单一并收起，行为与整体菜单一致。
-            popup.close()
-        }
-
-        contentItem: ListView {
-            id: level1List
-            clip: true
-            implicitHeight: contentHeight
-            model: control._level1Model
-            boundsMovement: Flickable.StopAtBounds
-
-            delegate: Item {
-                width: level1List.width
-                height: 32
-                implicitWidth: Math.max(level1Text.implicitWidth + 16 + 26, 130)
-
-                required property var modelData
-
-                onImplicitWidthChanged: {
-                    level1List.implicitWidth = Math.max(level1List.implicitWidth, implicitWidth)
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 3
-                    color: level1Hover.hovered ? QuiColor.Hovered : "transparent"
-                }
-
-                HoverHandler {
-                    id: level1Hover
-                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (modelData.value.length > 0) {
-                            control._commitValue(modelData.value)
-                        }
-                    }
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 6
-                    spacing: 6
-
-                    QuiText {
-                        id: level1Text
-                        Layout.fillWidth: true
+            ListView {
+                id: level1List
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.preferredWidth: Math.max(control.width, 180)
+                visible: control._hasGroups
+                clip: true
+                model: control._level1Model
+                boundsMovement: Flickable.StopAtBounds
+                keyNavigationEnabled: true
+                Keys.onLeftPressed: level0List.forceActiveFocus()
+                Keys.onReturnPressed: { if (currentIndex >= 0) control._commitValue(model[currentIndex].value) }
+                Keys.onEnterPressed: { if (currentIndex >= 0) control._commitValue(model[currentIndex].value) }
+                ScrollBar.vertical: QuiScrollBar {}
+                delegate: QuiItemDelegate {
+                    required property var modelData
+                    required property int index
+                    width: level1List.width
+                    height: 32
+                    text: modelData.label
+                    highlighted: level1List.currentIndex === index
+                    hoverEnabled: true
+                    font: control.font
+                    rightPadding: modelData.value === control.savedValue ? 28 : 10
+                    contentItem: QuiText {
                         text: modelData.label
+                        font: control.font
                         elide: Text.ElideRight
-                        font: QuiFont.Body
-                        color: modelData.value === control.savedValue ? QuiColor.Highlight : QuiColor.FontPrimary
+                        verticalAlignment: Text.AlignVCenter
                     }
-
+                    onHoveredChanged: { if (hovered) level1List.currentIndex = index }
+                    onClicked: control._commitValue(modelData.value)
                     QuiTextIcon {
-                        Layout.preferredWidth: 16
+                        anchors.right: parent.right
+                        anchors.rightMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
                         visible: modelData.value === control.savedValue
                         iconSource: QuiFontIcon.CheckMark
-                        iconColor: QuiColor.Highlight
                         iconSize: 13
                     }
                 }
             }
         }
-
         background: Rectangle {
             color: QuiColor.Primary
             border.color: Qt.darker(QuiColor.Primary, 1.2)

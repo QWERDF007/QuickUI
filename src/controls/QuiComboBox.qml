@@ -69,7 +69,7 @@ T.ComboBox {
         autoScroll: control.editable
         font: control.font
         readOnly: control.down
-        color: !control.enabled ? QuiColor.FontCaption : QuiColor.FontPrimary
+        color: !control.enabled || control.displayText === "请选择" ? QuiColor.FontCaption : QuiColor.FontPrimary
         inputMethodHints: control.inputMethodHints
         validator: control.validator
         selectByMouse: control.selectTextByMouse
@@ -92,18 +92,12 @@ T.ComboBox {
             accepted()
         }
     }
-    background: Rectangle {
+    background: QuiTextBoxBackground {
         implicitWidth: 140
         implicitHeight: 32
-        border.color: QuiColor.CardBorder
-        border.width: 1
+        inputItem: control
+        hovered: control.hovered
         visible: !control.flat || control.down
-        radius: 4
-        QuiFocusRectangle{
-            visible: control.visualFocus
-            radius:4
-            anchors.margins: -2
-        }
         color: !control.enabled ? control.disableColor : (control.hovered ? control.hoverColor : control.normalColor)
     }
 

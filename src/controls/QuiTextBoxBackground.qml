@@ -1,52 +1,21 @@
 import QtQuick
-import QtQuick.Controls
 
 import quickui
 
-QuiControlBackground {
-    property Item inputItem
+Rectangle {
     id: control
+    property Item inputItem
+    property bool hovered: false
+    property bool invalid: false
 
-    color: {
-        if (inputItem && !inputItem.enabled) {
-            return QuiColor.ItemDisabled
-        }
-        if (inputItem && inputItem.activeFocus) {
-            return QuiColor.themeMode === QuiColor.Dark ? Qt.darker(QuiColor.CardBackground, 1.2) : QuiColor.CardBackground
-        }
-        if (inputItem && inputItem.hovered) {
-            return QuiColor.themeMode === QuiColor.Dark ? Qt.lighter(QuiColor.CardBackground, 1.15) : Qt.darker(QuiColor.CardBackground, 1.02)
-        }
-        return QuiColor.CardBackground
-    }
-
+    implicitWidth: 200
+    implicitHeight: 32
+    radius: 4
     border.width: 1
-    gradient: Gradient {
-        GradientStop { position: 0.0; color: d.startColor }
-        GradientStop {
-            position: control.height > 0 ? Math.max(0.0, 1.0 - d.offsetSize / control.height) : 0.0
-            color: d.startColor
-        }
-        GradientStop {
-            position: control.height > 0 ? Math.max(0.0, 1.0 - d.offsetSize / control.height) : 0.0
-            color: d.endColor
-        }
-        GradientStop { position: 1.0; color: d.endColor }
-    }
-    bottomMargin: inputItem && inputItem.activeFocus ? 2 : 1
-
-    QtObject {
-        id: d
-        property int offsetSize: inputItem && inputItem.activeFocus ? 2 : 3
-        property color startColor: QuiColor.CardBorder
-        property color endColor: {
-            if (!control.enabled) {
-                return d.startColor
-            }
-            if (inputItem && inputItem.activeFocus) {
-                return QuiColor.Highlight
-            }
-            return QuiColor.ButtonShadow
-        }
-    }
+    border.color: !enabled ? QuiColor.CardBorder
+                : invalid ? QuiColor.Error
+                : (inputItem && inputItem.activeFocus) || hovered ? QuiColor.Highlight : QuiColor.CardBorder
+    color: !enabled ? QuiColor.ItemDisabled
+         : invalid ? Qt.tint(QuiColor.CardBackground, Qt.rgba(QuiColor.Error.r, QuiColor.Error.g, QuiColor.Error.b, 0.09))
+         : hovered ? QuiColor.ItemHover : QuiColor.CardBackground
 }

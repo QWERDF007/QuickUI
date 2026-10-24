@@ -44,6 +44,7 @@ void QuiColor::applyDarkPalette()
     ToolTip(QColor(93, 93, 93, 255));             // #5D5D5D
     Hovered(QColor(95, 95, 95, 255));             // #5F5F5F
     Highlight(QColor("#009688"));
+    Error(QColor("#cf222e"));
     FontPrimary(QColor(245, 245, 245, 255));
     FontDark(QColor(144, 144, 144, 255));         // #909090
     FontCaption(QColor(160, 160, 160, 255));
@@ -78,6 +79,7 @@ void QuiColor::applyLightPalette()
     ToolTip(QColor(255, 255, 255, 255));
     Hovered(QColor(0, 0, 0, 7));                  // 255 * 0.03
     Highlight(QColor(0, 102, 180, 255));          // #0066B4
+    Error(QColor("#cf222e"));
     FontPrimary(QColor(7, 7, 7, 255));            // #070707
     FontDark(QColor(118, 118, 118, 255));         // #767676
     FontCaption(QColor(118, 118, 118, 255));

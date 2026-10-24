@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls
 
 import quickui
@@ -7,6 +7,7 @@ TextField{
     id:control
     property alias textColor: control.color
     property color bgColor: QuiColor.Gray110
+    property color hoverLineColor: QuiColor.themeMode === QuiColor.Dark ? QuiColor.White : QuiColor.FontPrimary
     color: QuiColor.FontPrimary
     font: QuiFont.Body
     renderType: Text.NativeRendering
@@ -22,7 +23,7 @@ TextField{
             anchors.bottom: parent.bottom
             width: parent.width
             height: 2
-            color: control.focus ? QuiColor.Highlight : hovered ? "white" : bgColor
+            color: control.focus ? QuiColor.Highlight : (control.hovered ? control.hoverLineColor : control.bgColor)
         }
     }
 }
