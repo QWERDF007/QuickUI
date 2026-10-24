@@ -52,7 +52,9 @@ void QmlRegistrationTest::componentsCanBeInstantiated()
         QStringLiteral("import QtQuick\nimport quickui\nQuiFilledButton { text: 'Test' }"),
         QStringLiteral("import QtQuick\nimport quickui\nQuiToolTip { text: 'Tip' }"),
         QStringLiteral("import QtQuick\nimport quickui\nQuiDropImageArea { }"),
-        QStringLiteral("import QtQuick\nimport quickui\nQuiZoomBar { }")
+        QStringLiteral("import QtQuick\nimport quickui\nQuiZoomBar { }"),
+        QStringLiteral("import QtQuick\nimport quickui\nQuiTextBox { text: 'Hello'; placeholderText: 'Type here...' }"),
+        QStringLiteral("import QtQuick\nimport quickui\nQuiTextBoxMenu { }")
     };
 
     for (const auto &snippet : qmlSnippets) {
