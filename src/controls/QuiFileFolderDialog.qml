@@ -5,8 +5,10 @@ import quickui
 Item {
     id: control
 
-    // Dialog controller is not a visual element and must not participate in parent layouts
-    parent: null
+    width: 0
+    height: 0
+    implicitWidth: 0
+    implicitHeight: 0
 
     property string title: "选择文件或文件夹"
     property var currentFolder: ""
