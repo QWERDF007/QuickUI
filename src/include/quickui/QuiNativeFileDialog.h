@@ -11,7 +11,7 @@
 namespace quickui {
 
 /**
- * @brief Native file and folder dialog with Windows IFileOpenDialog + IFileDialogCustomize support.
+ * @brief Native file and folder dialog with Windows IFileOpenDialog support.
  *
  * Provides a single dialog capable of selecting either a file or a folder,
  * with modern Windows Quick Access, preview, and breadcrumb navigation.
@@ -40,18 +40,16 @@ public:
     Q_INVOKABLE bool isAvailable() const;
 
     /**
-     * @brief Open native dialog to pick either a file or a folder.
+     * @brief Open native dialog to pick either a file or a folder using the standard Open button.
      * @param title Dialog title
      * @param initialPath Initial directory or file path
      * @param filters File filter specs (e.g. "Images (*.png *.jpg)", "All Files (*.*)")
-     * @param folderButtonText Text for the folder selection button (default "选择此文件夹")
      * @param parentWindow Optional parent QWindow
      * @return Selected path (with normalized '/' separators), or empty if cancelled
      */
     Q_INVOKABLE QString chooseFileOrFolder(const QString &title = QString(),
                                           const QString &initialPath = QString(),
                                           const QStringList &filters = QStringList(),
-                                          const QString &folderButtonText = QStringLiteral("选择此文件夹"),
                                           QWindow *parentWindow = nullptr);
 
     /**
@@ -85,7 +83,6 @@ public:
     static QString openFileOrFolder(const QString &title = QString(),
                                    const QString &initialPath = QString(),
                                    const QStringList &filters = QStringList(),
-                                   const QString &folderButtonText = QStringLiteral("选择此文件夹"),
                                    QWindow *parentWindow = nullptr);
 
     static QString openFile(const QString &title = QString(),

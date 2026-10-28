@@ -13,12 +13,15 @@
 #        define NOMINMAX
 #    endif
 #    include <windows.h>
+#    include <commctrl.h>
 #    include <shobjidl.h>
 #    include <wrl/client.h>
 
 #    if defined(_MSC_VER)
 #        pragma comment(lib, "ole32.lib")
 #        pragma comment(lib, "shell32.lib")
+#        pragma comment(lib, "comctl32.lib")
+#        pragma comment(lib, "user32.lib")
 #    endif
 #endif
 
@@ -28,14 +31,21 @@ namespace quickui {
 
 namespace {
 
-constexpr DWORD kFolderButtonId = 1001;
-
-class FolderChoiceEventHandler : public IFileDialogEvents, public IFileDialogControlEvents
+/**
+ * @brief Subclasses dialog HWND to allow the standard native Open (IDOK) button
+ * to select either a highlighted folder, a browsed current folder, or a file.
+ */
+class NativeOpenDialogHandler : public IFileDialogEvents
 {
 public:
-    FolderChoiceEventHandler(IFileOpenDialog *dialog, DWORD buttonId)
-        : m_dialog(dialog), m_buttonId(buttonId)
+    explicit NativeOpenDialogHandler(IFileOpenDialog *dialog, QuiNativeFileDialog::DialogMode mode)
+        : m_dialog(dialog), m_mode(mode)
     {
+    }
+
+    ~NativeOpenDialogHandler()
+    {
+        unhookSubclass();
     }
 
     // IUnknown
@@ -46,12 +56,6 @@ public:
         if (riid == IID_IUnknown || riid == IID_IFileDialogEvents)
         {
             *ppv = static_cast<IFileDialogEvents *>(this);
-            AddRef();
-            return S_OK;
-        }
-        if (riid == IID_IFileDialogControlEvents)
-        {
-            *ppv = static_cast<IFileDialogControlEvents *>(this);
             AddRef();
             return S_OK;
         }
@@ -71,69 +75,160 @@ public:
     // IFileDialogEvents
     IFACEMETHODIMP OnFileOk(IFileDialog *) override { return S_OK; }
     IFACEMETHODIMP OnFolderChanging(IFileDialog *, IShellItem *) override { return S_OK; }
-    IFACEMETHODIMP OnFolderChange(IFileDialog *) override { return S_OK; }
+    IFACEMETHODIMP OnFolderChange(IFileDialog *pfd) override
+    {
+        if (!m_subclassed && pfd)
+        {
+            Microsoft::WRL::ComPtr<IOleWindow> pOleWindow;
+            if (SUCCEEDED(pfd->QueryInterface(IID_PPV_ARGS(&pOleWindow))) && pOleWindow)
+            {
+                HWND hwndDlg = nullptr;
+                if (SUCCEEDED(pOleWindow->GetWindow(&hwndDlg)) && hwndDlg)
+                {
+                    m_dialogHwnd = hwndDlg;
+                    SetWindowSubclass(hwndDlg, SubclassProc, kSubclassId, reinterpret_cast<DWORD_PTR>(this));
+                    m_subclassed = true;
+                }
+            }
+        }
+        return S_OK;
+    }
     IFACEMETHODIMP OnSelectionChange(IFileDialog *) override { return S_OK; }
     IFACEMETHODIMP OnShareViolation(IFileDialog *, IShellItem *, FDE_SHAREVIOLATION_RESPONSE *) override { return S_OK; }
     IFACEMETHODIMP OnTypeChange(IFileDialog *) override { return S_OK; }
     IFACEMETHODIMP OnOverwrite(IFileDialog *, IShellItem *, FDE_OVERWRITE_RESPONSE *) override { return S_OK; }
 
-    // IFileDialogControlEvents
-    IFACEMETHODIMP OnButtonClicked(IFileDialogCustomize *, DWORD dwIDCtl) override
+    void unhookSubclass()
     {
-        if (dwIDCtl == m_buttonId && m_dialog)
+        if (m_subclassed && m_dialogHwnd)
         {
-            bool resolved = false;
-            // Check if user has highlighted a folder item in current list
-            Microsoft::WRL::ComPtr<IShellItem> pSelected;
-            if (SUCCEEDED(m_dialog->GetCurrentSelection(&pSelected)) && pSelected)
-            {
-                SFGAOF attribs = 0;
-                if (SUCCEEDED(pSelected->GetAttributes(SFGAO_FOLDER, &attribs)) && (attribs & SFGAO_FOLDER))
-                {
-                    PWSTR pszPath = nullptr;
-                    if (SUCCEEDED(pSelected->GetDisplayName(SIGDN_FILESYSPATH, &pszPath)) && pszPath)
-                    {
-                        m_folderPath = QString::fromWCharArray(pszPath);
-                        CoTaskMemFree(pszPath);
-                        resolved = true;
-                    }
-                }
-            }
-
-            // Otherwise, select the currently opened directory
-            if (!resolved)
-            {
-                Microsoft::WRL::ComPtr<IShellItem> pCurrentFolder;
-                if (SUCCEEDED(m_dialog->GetFolder(&pCurrentFolder)) && pCurrentFolder)
-                {
-                    PWSTR pszPath = nullptr;
-                    if (SUCCEEDED(pCurrentFolder->GetDisplayName(SIGDN_FILESYSPATH, &pszPath)) && pszPath)
-                    {
-                        m_folderPath = QString::fromWCharArray(pszPath);
-                        CoTaskMemFree(pszPath);
-                        resolved = true;
-                    }
-                }
-            }
-
-            m_folderSelected = resolved;
-            m_dialog->Close(S_OK);
+            RemoveWindowSubclass(m_dialogHwnd, SubclassProc, kSubclassId);
+            m_subclassed = false;
+            m_dialogHwnd = nullptr;
         }
-        return S_OK;
     }
 
-    IFACEMETHODIMP OnItemSelected(IFileDialogCustomize *, DWORD, DWORD) override { return S_OK; }
-    IFACEMETHODIMP OnCheckButtonToggled(IFileDialogCustomize *, DWORD, BOOL) override { return S_OK; }
-    IFACEMETHODIMP OnControlActivating(IFileDialogCustomize *, DWORD) override { return S_OK; }
-
-    bool folderSelected() const { return m_folderSelected; }
+    bool isFolderAccepted() const { return m_folderAccepted; }
     QString folderPath() const { return m_folderPath; }
 
 private:
+    static constexpr UINT_PTR kSubclassId = 101;
+
+    static LRESULT CALLBACK SubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+    {
+        (void)uIdSubclass;
+        (void)lParam;
+        auto *self = reinterpret_cast<NativeOpenDialogHandler *>(dwRefData);
+        if (self && uMsg == WM_COMMAND)
+        {
+            const WORD id = LOWORD(wParam);
+            const WORD code = HIWORD(wParam);
+            if (id == IDOK && (code == BN_CLICKED || code == 0) && self->m_mode == QuiNativeFileDialog::FileOrFolder)
+            {
+                if (self->handleOpenCommand(hWnd))
+                {
+                    return 0;
+                }
+            }
+        }
+        return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+    }
+
+    bool handleOpenCommand(HWND hWnd)
+    {
+        if (!m_dialog)
+            return false;
+
+        // 1. If user selected an item in the current Explorer view
+        Microsoft::WRL::ComPtr<IShellItem> pSelected;
+        if (SUCCEEDED(m_dialog->GetCurrentSelection(&pSelected)) && pSelected)
+        {
+            SFGAOF attribs = 0;
+            if (SUCCEEDED(pSelected->GetAttributes(SFGAO_FOLDER, &attribs)) && (attribs & SFGAO_FOLDER))
+            {
+                PWSTR pszPath = nullptr;
+                if (SUCCEEDED(pSelected->GetDisplayName(SIGDN_FILESYSPATH, &pszPath)) && pszPath)
+                {
+                    m_folderPath = QString::fromWCharArray(pszPath);
+                    CoTaskMemFree(pszPath);
+                    m_folderAccepted = true;
+                    PostMessage(hWnd, WM_CLOSE, 0, 0);
+                    return true;
+                }
+            }
+            else
+            {
+                // File item selected: let default Windows Open handling proceed
+                return false;
+            }
+        }
+
+        // 2. If user typed a folder name in the file name box
+        PWSTR pszTyped = nullptr;
+        if (SUCCEEDED(m_dialog->GetFileName(&pszTyped)) && pszTyped)
+        {
+            QString typed = QString::fromWCharArray(pszTyped).trimmed();
+            CoTaskMemFree(pszTyped);
+            if (!typed.isEmpty())
+            {
+                QFileInfo fiTyped(typed);
+                if (fiTyped.isAbsolute() && fiTyped.isDir())
+                {
+                    m_folderPath = fiTyped.absoluteFilePath();
+                    m_folderAccepted = true;
+                    PostMessage(hWnd, WM_CLOSE, 0, 0);
+                    return true;
+                }
+
+                Microsoft::WRL::ComPtr<IShellItem> pCurFolder;
+                if (SUCCEEDED(m_dialog->GetFolder(&pCurFolder)) && pCurFolder)
+                {
+                    PWSTR pszCur = nullptr;
+                    if (SUCCEEDED(pCurFolder->GetDisplayName(SIGDN_FILESYSPATH, &pszCur)) && pszCur)
+                    {
+                        QString curFolder = QString::fromWCharArray(pszCur);
+                        CoTaskMemFree(pszCur);
+                        QFileInfo fiRel(QDir(curFolder).filePath(typed));
+                        if (fiRel.isDir())
+                        {
+                            m_folderPath = fiRel.absoluteFilePath();
+                            m_folderAccepted = true;
+                            PostMessage(hWnd, WM_CLOSE, 0, 0);
+                            return true;
+                        }
+                    }
+                }
+
+                // If typed is an existing file or other name, let default Windows handler validate
+                return false;
+            }
+        }
+
+        // 3. No file selected and edit box is empty: accept current browsing folder
+        Microsoft::WRL::ComPtr<IShellItem> pFolder;
+        if (SUCCEEDED(m_dialog->GetFolder(&pFolder)) && pFolder)
+        {
+            PWSTR pszPath = nullptr;
+            if (SUCCEEDED(pFolder->GetDisplayName(SIGDN_FILESYSPATH, &pszPath)) && pszPath)
+            {
+                m_folderPath = QString::fromWCharArray(pszPath);
+                CoTaskMemFree(pszPath);
+                m_folderAccepted = true;
+                PostMessage(hWnd, WM_CLOSE, 0, 0);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     long m_refCount{1};
     IFileOpenDialog *m_dialog{nullptr};
-    DWORD m_buttonId{kFolderButtonId};
-    bool m_folderSelected{false};
+    QuiNativeFileDialog::DialogMode m_mode{QuiNativeFileDialog::FileOrFolder};
+    bool m_subclassed{false};
+    HWND m_dialogHwnd{nullptr};
+    bool m_folderAccepted{false};
     QString m_folderPath;
 };
 
@@ -150,7 +245,6 @@ QString executeNativeOpenDialog(QuiNativeFileDialog::DialogMode mode,
                                const QString &title,
                                const QString &initialPath,
                                const QStringList &filters,
-                               const QString &folderButtonText,
                                QWindow *parentWindow)
 {
     if (QCoreApplication::testAttribute(Qt::AA_DontUseNativeDialogs))
@@ -180,10 +274,7 @@ QString executeNativeOpenDialog(QuiNativeFileDialog::DialogMode mode,
     {
         options |= FOS_FILEMUSTEXIST;
     }
-    else // FileOrFolder
-    {
-        options |= FOS_FILEMUSTEXIST;
-    }
+    // FileOrFolder intentionally omits FOS_FILEMUSTEXIST so clicking Open with empty selection can accept the folder
     pFileOpen->SetOptions(options);
 
     if (!title.isEmpty())
@@ -258,33 +349,19 @@ QString executeNativeOpenDialog(QuiNativeFileDialog::DialogMode mode,
         pFileOpen->SetFileTypeIndex(1);
     }
 
-    FolderChoiceEventHandler *pHandler = nullptr;
+    NativeOpenDialogHandler *pHandler = new NativeOpenDialogHandler(pFileOpen.Get(), mode);
     DWORD dwCookie = 0;
-
-    if (mode == QuiNativeFileDialog::FileOrFolder)
-    {
-        Microsoft::WRL::ComPtr<IFileDialogCustomize> pCustomize;
-        if (SUCCEEDED(pFileOpen.As(&pCustomize)) && pCustomize)
-        {
-            const QString btnText = folderButtonText.trimmed().isEmpty()
-                                        ? QStringLiteral("选择此文件夹")
-                                        : folderButtonText;
-            std::wstring wBtnText = btnText.toStdWString();
-            pCustomize->AddPushButton(kFolderButtonId, wBtnText.c_str());
-        }
-
-        pHandler = new FolderChoiceEventHandler(pFileOpen.Get(), kFolderButtonId);
-        pFileOpen->Advise(pHandler, &dwCookie);
-    }
+    pFileOpen->Advise(pHandler, &dwCookie);
 
     HWND parentHwnd = resolveParentHwnd(parentWindow);
     HRESULT hrShow = pFileOpen->Show(parentHwnd);
 
+    pHandler->unhookSubclass();
     if (dwCookie)
         pFileOpen->Unadvise(dwCookie);
 
     QString result;
-    if (pHandler && pHandler->folderSelected())
+    if (pHandler->isFolderAccepted())
     {
         result = pHandler->folderPath();
     }
@@ -302,8 +379,7 @@ QString executeNativeOpenDialog(QuiNativeFileDialog::DialogMode mode,
         }
     }
 
-    if (pHandler)
-        pHandler->Release();
+    pHandler->Release();
 
     if (needUninit)
         CoUninitialize();
@@ -332,10 +408,9 @@ bool QuiNativeFileDialog::isAvailable() const
 QString QuiNativeFileDialog::chooseFileOrFolder(const QString &title,
                                                const QString &initialPath,
                                                const QStringList &filters,
-                                               const QString &folderButtonText,
                                                QWindow *parentWindow)
 {
-    return openFileOrFolder(title, initialPath, filters, folderButtonText, parentWindow);
+    return openFileOrFolder(title, initialPath, filters, parentWindow);
 }
 
 QString QuiNativeFileDialog::chooseFile(const QString &title,
@@ -356,16 +431,14 @@ QString QuiNativeFileDialog::chooseFolder(const QString &title,
 QString QuiNativeFileDialog::openFileOrFolder(const QString &title,
                                              const QString &initialPath,
                                              const QStringList &filters,
-                                             const QString &folderButtonText,
                                              QWindow *parentWindow)
 {
 #ifdef Q_OS_WIN
-    return executeNativeOpenDialog(FileOrFolder, title, initialPath, filters, folderButtonText, parentWindow);
+    return executeNativeOpenDialog(FileOrFolder, title, initialPath, filters, parentWindow);
 #else
     Q_UNUSED(title);
     Q_UNUSED(initialPath);
     Q_UNUSED(filters);
-    Q_UNUSED(folderButtonText);
     Q_UNUSED(parentWindow);
     return QString();
 #endif
@@ -377,7 +450,7 @@ QString QuiNativeFileDialog::openFile(const QString &title,
                                      QWindow *parentWindow)
 {
 #ifdef Q_OS_WIN
-    return executeNativeOpenDialog(File, title, initialPath, filters, QString(), parentWindow);
+    return executeNativeOpenDialog(File, title, initialPath, filters, parentWindow);
 #else
     Q_UNUSED(title);
     Q_UNUSED(initialPath);
@@ -392,7 +465,7 @@ QString QuiNativeFileDialog::openFolder(const QString &title,
                                        QWindow *parentWindow)
 {
 #ifdef Q_OS_WIN
-    return executeNativeOpenDialog(Folder, title, initialPath, QStringList(), QString(), parentWindow);
+    return executeNativeOpenDialog(Folder, title, initialPath, QStringList(), parentWindow);
 #else
     Q_UNUSED(title);
     Q_UNUSED(initialPath);

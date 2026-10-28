@@ -8,7 +8,6 @@ Item {
     property string title: "选择文件或文件夹"
     property var currentFolder: ""
     property string selectedPath: ""
-    property string folderButtonText: "选择此文件夹"
     property var nameFilters: []
     property int dialogMode: QuiFileFolderDialog.DialogMode.FileOrFolder
 
@@ -90,7 +89,7 @@ Item {
             let res = ""
             let folder = _resolvedFolderStr()
             if (dialogMode === QuiFileFolderDialog.DialogMode.FileOrFolder) {
-                res = nativePicker.chooseFileOrFolder(title, folder, nameFilters, folderButtonText)
+                res = nativePicker.chooseFileOrFolder(title, folder, nameFilters)
             } else if (dialogMode === QuiFileFolderDialog.DialogMode.File) {
                 res = nativePicker.chooseFile(title, folder, nameFilters)
             } else {
@@ -124,7 +123,7 @@ Item {
         let folder = _resolvedFolderStr()
         let res = ""
         if (dialogMode === QuiFileFolderDialog.DialogMode.FileOrFolder) {
-            res = nativePicker.chooseFileOrFolder(title, folder, nameFilters, folderButtonText)
+            res = nativePicker.chooseFileOrFolder(title, folder, nameFilters)
         } else if (dialogMode === QuiFileFolderDialog.DialogMode.File) {
             res = nativePicker.chooseFile(title, folder, nameFilters)
         } else {
