@@ -94,6 +94,13 @@ Item {
 
             compare(tab.text, "Tab")
             compare(tab.normalColor.toString(), QuiColor.Primary.toString())
+            compare(tab.font.pixelSize, QuiFont.Subtitle.pixelSize)
+            compare(tab.textColor.toString(), QuiColor.FontPrimary.toString())
+
+            tab.checked = true
+            compare(tab.textColor.toString(), QuiColor.Highlight.toString())
+
+            tab.checked = false
             tab.enabled = false
             verify(tab.contentItem.opacity < 1)
         }
