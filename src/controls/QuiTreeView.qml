@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQml.Models
 
 import quickui
 
@@ -11,6 +12,8 @@ Rectangle {
     property alias view: tree_view
     property alias rows: tree_view.rows
     property alias contentY: tree_view.contentY
+    property alias delegate: tree_view.delegate
+    property alias selectionModel: tree_view.selectionModel
     property string displayRole: "display"
     property string colorRole: ""
     property int iconSource: -1
@@ -84,6 +87,27 @@ Rectangle {
         tree_view.collapseRecursively(-1)
     }
 
+    function setCurrentRow(row) {
+        if (row >= 0 && row < tree_view.rows) {
+            let idx = tree_view.modelIndex(row, 0)
+            if (tree_view.selectionModel) {
+                tree_view.selectionModel.setCurrentIndex(idx, ItemSelectionModel.ClearAndSelect)
+            }
+            d.currentRow = row
+        } else {
+            clearSelection()
+        }
+    }
+
+    function clearSelection() {
+        if (tree_view.selectionModel) {
+            tree_view.selectionModel.clearCurrentIndex()
+            tree_view.selectionModel.clearSelection()
+        }
+        d.currentRow = -1
+        d.current = null
+    }
+
     function modelValue(rowData, role, fallbackValue) {
         if (rowData === undefined || rowData === null) {
             return fallbackValue
@@ -155,6 +179,20 @@ Rectangle {
             return control.cellHeight
         }
 
+        selectionModel: ItemSelectionModel {
+            model: tree_view.model
+        }
+
+        Connections {
+            target: tree_view.selectionModel
+            function onCurrentChanged(current, previous) {
+                if (current && current.valid) {
+                    let pt = tree_view.cellAtIndex(current)
+                    d.currentRow = pt.y
+                }
+            }
+        }
+
         ScrollBar.horizontal: QuiScrollBar {}
         ScrollBar.vertical: QuiScrollBar {}
 
@@ -172,6 +210,8 @@ Rectangle {
             required property bool expanded
             required property bool hasChildren
             required property int depth
+            required property bool current
+            required property bool selected
 
             implicitWidth: tree_view.width
             implicitHeight: control.cellHeight
@@ -188,6 +228,10 @@ Rectangle {
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton
                 onClicked: {
+                    if (tree_view.selectionModel) {
+                        let idx = tree_view.modelIndex(tree_item.row, tree_item.column)
+                        tree_view.selectionModel.setCurrentIndex(idx, ItemSelectionModel.ClearAndSelect)
+                    }
                     d.current = tree_item.model
                     d.currentRow = tree_item.row
                     control.itemClicked(tree_item.row, tree_item.model)
@@ -203,7 +247,7 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 color: {
-                    if (d.currentRow === tree_item.row) {
+                    if (tree_item.current || tree_item.selected || d.currentRow === tree_item.row) {
                         return control.selectedColor
                     }
                     if (row_mouse.containsMouse || row_mouse.pressed) {
@@ -218,7 +262,7 @@ Rectangle {
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     color: control.selectedBorderColor
-                    visible: d.currentRow === tree_item.row
+                    visible: tree_item.current || tree_item.selected || d.currentRow === tree_item.row
                 }
             }
 
