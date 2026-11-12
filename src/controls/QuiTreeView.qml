@@ -89,7 +89,7 @@ Rectangle {
 
     function setCurrentRow(row) {
         if (row >= 0 && row < tree_view.rows) {
-            let idx = tree_view.modelIndex(row, 0)
+            let idx = tree_view.index ? tree_view.index(row, 0) : tree_view.modelIndex(row, 0)
             if (tree_view.selectionModel) {
                 tree_view.selectionModel.setCurrentIndex(idx, ItemSelectionModel.ClearAndSelect)
             }
@@ -213,6 +213,21 @@ Rectangle {
             required property bool current
             required property bool selected
 
+            property bool isHovered: false
+
+            function resetHover() {
+                isHovered = false
+                if (row_mouse && row_mouse.hoverEnabled) {
+                    row_mouse.hoverEnabled = false
+                    row_mouse.hoverEnabled = true
+                }
+            }
+
+            onRowChanged: resetHover()
+            onYChanged: resetHover()
+            onModelChanged: resetHover()
+            onVisibleChanged: if (!visible) resetHover()
+
             implicitWidth: tree_view.width
             implicitHeight: control.cellHeight
             readonly property int leftMargin: 6
@@ -226,10 +241,13 @@ Rectangle {
 
                 anchors.fill: parent
                 hoverEnabled: true
+                onEntered: tree_item.isHovered = true
+                onExited: tree_item.isHovered = false
+                onCanceled: tree_item.isHovered = false
                 acceptedButtons: Qt.LeftButton
                 onClicked: {
                     if (tree_view.selectionModel) {
-                        let idx = tree_view.modelIndex(tree_item.row, tree_item.column)
+                        let idx = tree_view.index ? tree_view.index(tree_item.row, tree_item.column) : tree_view.modelIndex(tree_item.row, tree_item.column)
                         tree_view.selectionModel.setCurrentIndex(idx, ItemSelectionModel.ClearAndSelect)
                     }
                     d.current = tree_item.model
@@ -250,7 +268,7 @@ Rectangle {
                     if (tree_item.current || tree_item.selected || d.currentRow === tree_item.row) {
                         return control.selectedColor
                     }
-                    if (row_mouse.containsMouse || row_mouse.pressed) {
+                    if (tree_item.isHovered || row_mouse.pressed) {
                         return control.hoveredColor
                     }
                     return tree_item.row % 2 === 0 ? "transparent" : control.alternateColor
