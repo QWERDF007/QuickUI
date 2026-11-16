@@ -55,7 +55,7 @@ Item {
             const button = createTemporaryObject(filledButtonComponent, root)
             verify(button !== null)
 
-            compare(button.normalColor.toString(), QuiColor.Button.toString())
+            compare(button.normalColor.toString(), QuiColor.Highlight.toString())
             compare(button.textColor.toString(), "#ffffff")
             button.enabled = false
             compare(button.opacity, 0.3)

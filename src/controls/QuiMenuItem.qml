@@ -37,7 +37,10 @@ T.MenuItem {
         }
     }
     contentItem: Item{
+        implicitWidth: contentRow.implicitWidth + contentRow.anchors.leftMargin + contentRow.anchors.rightMargin
+        implicitHeight: contentRow.implicitHeight
         Row{
+            id: contentRow
             spacing: control.iconSpacing
             readonly property real arrowPadding: control.subMenu && control.arrow ? control.arrow.width + control.spacing : 0
             readonly property real indicatorPadding: control.checkable && control.indicator ? control.indicator.width + control.spacing : 0

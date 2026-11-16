@@ -92,6 +92,7 @@ QuiPopup {
                 }
                 QuiButton { // 关闭按钮
                     id:neutral_btn
+                    objectName: "neutral_btn"
                     visible: useNeutralButton
                     text: neutralText
                     onClicked: {
@@ -105,6 +106,7 @@ QuiPopup {
                 }
                 QuiButton { // 取消按钮
                     id: negative_btn
+                    objectName: "negative_btn"
                     visible: useNegativeButton
                     text: negativeText
                     onClicked: {
@@ -118,9 +120,11 @@ QuiPopup {
                 }
                 QuiButton { // 确认按钮
                     id:positive_btn
+                    objectName: "positive_btn"
                     visible: usePositiveButton
                     enabled: control.positiveButtonEnabled
                     text: positiveText
+                    highlighted: true
                     onClicked: {
                         if(control.onPositiveClickListener){
                             control.onPositiveClickListener()

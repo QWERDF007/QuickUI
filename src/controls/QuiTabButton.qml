@@ -36,21 +36,46 @@ TabButton {
     property int indicatorHeight: 2
     property real radius: 2
 
-    implicitWidth: Math.max(content.implicitWidth + leftPadding + rightPadding, 80)
+    // 竖排文字：逐字纵向排列，等价于 CSS 的 writing-mode: vertical-rl + text-orientation: upright，
+    // 供窄竖向 Tab 栏使用。竖排时图标不参与布局。
+    property bool verticalText: false
+
+    implicitWidth: Math.max(content.implicitWidth + leftPadding + rightPadding, verticalText ? 30 : 80)
     implicitHeight: 48
 
-    contentItem: IconLabel {
+    contentItem: Item {
         id: content
-        spacing: control.spacing
-        mirrored: control.mirrored
-        display: control.display
-        alignment: Qt.AlignCenter
 
-        icon: control.icon
-        text: control.text
-        font: control.font
-        color: control.textColor
-        opacity: control.enabled ? 1.0 : 0.4
+        implicitWidth: control.verticalText ? verticalLabel.implicitWidth : horizontalLabel.implicitWidth
+        implicitHeight: control.verticalText ? verticalLabel.implicitHeight : horizontalLabel.implicitHeight
+
+        IconLabel {
+            id: horizontalLabel
+            anchors.centerIn: parent
+            visible: !control.verticalText
+            spacing: control.spacing
+            mirrored: control.mirrored
+            display: control.display
+            alignment: Qt.AlignCenter
+
+            icon: control.icon
+            text: control.text
+            font: control.font
+            color: control.textColor
+            opacity: control.enabled ? 1.0 : 0.4
+        }
+
+        Text {
+            id: verticalLabel
+            anchors.centerIn: parent
+            visible: control.verticalText
+            text: control.text.split("").join("\n")
+            font: control.font
+            color: control.textColor
+            opacity: control.enabled ? 1.0 : 0.4
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
     }
 
     background: Rectangle {

@@ -6,7 +6,7 @@ import quickui
 
 Button {
     property string contentDescription: ""
-    property color normalColor: QuiColor.Primary
+    property color normalColor: QuiColor.Highlight
     property color hoverColor: Qt.lighter(normalColor, 1.1)
     property color pressedColor: Qt.lighter(normalColor, 1.2)
     property color disableColor: QuiColor.ItemDisabled

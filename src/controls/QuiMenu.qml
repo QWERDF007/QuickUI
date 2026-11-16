@@ -9,6 +9,12 @@ T.Menu {
     property bool animationEnabled: true
     property int iconSource: 0
     id: control
+    contentWidth: {
+        let widest = 0
+        for (let index = 0; index < count; ++index)
+            widest = Math.max(widest, itemAt(index).implicitWidth)
+        return widest
+    }
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             contentWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
