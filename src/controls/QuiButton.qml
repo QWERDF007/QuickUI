@@ -11,7 +11,7 @@ Button {
     property color hoverColor: normalColor === QuiColor.White ? Qt.darker(normalColor, 1.05) : Qt.lighter(normalColor, 1.2)
     property color pressedColor: normalColor === QuiColor.White ? Qt.darker(normalColor, 1.1) : Qt.lighter(normalColor, 1.3)
     property color textColor: QuiColor.FontPrimary
-    property color borderColor: (control.highlighted || control.activeFocus) ? QuiColor.Highlight : QuiColor.Border
+    property color borderColor: control.enabled && (control.hovered || control.highlighted || control.activeFocus) ? QuiColor.Highlight : QuiColor.Border
     property int borderWidth: 2
     Accessible.role: Accessible.Button
     Accessible.name: control.text
