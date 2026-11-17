@@ -4,7 +4,7 @@ import QtQuick.Controls.Basic
 
 import quickui
 
-Button {
+QuiButtonBase {
     property string contentDescription: ""
     property color normalColor: QuiColor.Highlight
     property color hoverColor: Qt.lighter(normalColor, 1.1)
@@ -17,13 +17,8 @@ Button {
     Accessible.onPressAction: control.clicked()
     id: control
     focusPolicy:Qt.TabFocus
-    font: QuiFont.Body
-    verticalPadding: 0
-    horizontalPadding:12
-    opacity: enabled ? 1 : 0.3
     background: QuiControlBackground{
         implicitWidth: 30
-        implicitHeight: 30
         radius: 4
         bottomMargin: enabled ? 2 : 0
         border.width: enabled ? 1 : 0

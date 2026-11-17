@@ -15,6 +15,9 @@ Item {
     property bool canDecrease: true
     property bool canIncrease: true
     property bool flat: false
+    property int buttonWidth: 28
+    property int iconSize: 12
+    property int contentPadding: 1
     property font font: QuiFont.Body
 
     signal decreaseRequested()
@@ -52,15 +55,15 @@ Item {
 
         RowLayout {
             anchors.fill: parent
-            anchors.margins: 1
+            anchors.margins: control.contentPadding
             spacing: 0
 
             QuiTextIconButton {
                 objectName: "stepperMinus"
-                Layout.preferredWidth: 28
+                Layout.preferredWidth: control.buttonWidth
                 Layout.fillHeight: true
                 iconSource: QuiFontIcon.CalculatorSubtract
-                iconSize: 12
+                iconSize: control.iconSize
                 radius: 2
                 normalColor: QuiColor.Transparent
                 hoverColor: QuiColor.ItemHover
@@ -135,10 +138,10 @@ Item {
 
             QuiTextIconButton {
                 objectName: "stepperPlus"
-                Layout.preferredWidth: 28
+                Layout.preferredWidth: control.buttonWidth
                 Layout.fillHeight: true
                 iconSource: QuiFontIcon.Add
-                iconSize: 12
+                iconSize: control.iconSize
                 radius: 2
                 normalColor: QuiColor.Transparent
                 hoverColor: QuiColor.ItemHover

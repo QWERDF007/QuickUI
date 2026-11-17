@@ -20,6 +20,9 @@ Item {
     property font font: QuiFont.Body
     property alias text: field.text
     property alias inputItem: field.inputItem
+    property alias buttonWidth: field.buttonWidth
+    property alias iconSize: field.iconSize
+    property alias contentPadding: field.contentPadding
 
     signal editingFinished()
 

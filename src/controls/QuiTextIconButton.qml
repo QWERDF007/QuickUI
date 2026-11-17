@@ -5,19 +5,19 @@ import QtQuick.Controls.Basic
 
 import quickui
 
-Button {
+QuiButtonBase {
     id:control
     display: Button.IconOnly
     property int iconSize: 20
     property int iconSource
     property int radius:4
     property string contentDescription: ""
-    property color hoverColor: Qt.lighter(normalColor, 1.2)
-    property color pressedColor: Qt.lighter(normalColor, 1.3)
+    property color hoverColor: QuiColor.ItemHover
+    property color pressedColor: QuiColor.ItemPress
     property color normalColor: QuiColor.Button
     property Component iconDelegate: com_icon
     property color color: pressed ? pressedColor : hovered ? hoverColor : normalColor
-    property color iconColor: enabled ? QuiColor.FontPrimary : "#6E6E6E"
+    property color iconColor: enabled ? QuiColor.FontPrimary : QuiColor.FontDark
     property color textColor: QuiColor.FontPrimary
     readonly property bool hostingPopupOpen: {
         var ancestor = control.parent
@@ -36,10 +36,8 @@ Button {
     padding: 0
     verticalPadding: 4
     horizontalPadding: 4
-    font: QuiFont.Caption
     background: Rectangle{
-        implicitWidth: 30
-        implicitHeight: 30
+        implicitWidth: 32
         radius: control.radius
         color:control.color
         QuiFocusRectangle{

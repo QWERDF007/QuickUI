@@ -6,6 +6,7 @@ import quickui
 Item {
     property string headerText: ""
     property int headerHeight: 45
+    property int headerPadding: 15
     property Component headerDelegate: com_header
     property bool expand: false
     property int contentHeight: 300
@@ -18,11 +19,12 @@ Item {
     QtObject {
         id: d
         property bool flag: false
-        function toggle() {
-            d.flag = true
-            expand = !expand
-            d.flag = false
-        }
+    }
+
+    function toggle() {
+        d.flag = true
+        expand = !expand
+        d.flag = false
     }
 
     clip: true
@@ -57,7 +59,7 @@ Item {
                     }
                 }
 
-                onClicked: d.toggle()
+                onClicked: control.toggle()
             }
 
             QuiText {
@@ -80,12 +82,12 @@ Item {
             id: control_mouse
             anchors.fill: parent
             hoverEnabled: true
-            onClicked: d.toggle()
+            onClicked: control.toggle()
         }
 
         QuiLoader {
             anchors.fill: parent
-            anchors.leftMargin: 15
+            anchors.leftMargin: control.headerPadding
             sourceComponent: control.headerDelegate
         }
     }

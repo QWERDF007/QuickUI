@@ -7,6 +7,8 @@ import quickui
 QuiPopup {
     id: control
     property string title: ""
+    property font titleFont: QuiFont.Title
+    property Item initialFocusItem: null
     property string message: ""
     property string neutralText: "关闭"
     property string negativeText: "取消"
@@ -26,7 +28,7 @@ QuiPopup {
     implicitHeight: layout_content.height
     focus: true
 
-    onOpened: positive_btn.forceActiveFocus()
+    onOpened: (initialFocusItem || positive_btn).forceActiveFocus()
 
     property var contentDelegate: Component { // 默认内容代理为消息，可重载
         Flickable {
@@ -64,7 +66,7 @@ QuiPopup {
             QuiText { // 标题
                 id:text_title
                 Layout.bottomMargin: 10
-                font: QuiFont.Title
+                font: control.titleFont
                 text:title
                 topPadding: 20
                 leftPadding: 20

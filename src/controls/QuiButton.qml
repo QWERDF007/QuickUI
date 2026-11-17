@@ -4,7 +4,7 @@ import QtQuick.Controls.Basic
 
 import quickui
 
-Button {
+QuiButtonBase {
     property string contentDescription: ""
     property color normalColor: checkable && checked ? QuiColor.Highlight : QuiColor.Button
     property alias backgroundColor: control.normalColor
@@ -18,14 +18,9 @@ Button {
     Accessible.description: contentDescription
     Accessible.onPressAction: control.clicked()
     id: control
-    verticalPadding: 0
-    horizontalPadding: 12
-    font: QuiFont.Body
     focusPolicy: Qt.NoFocus
-    opacity: enabled ? 1 : 0.3
     background: Rectangle {
         implicitWidth: 30
-        implicitHeight: 30
         radius: 4
         color:  {
             if (enabled) {
