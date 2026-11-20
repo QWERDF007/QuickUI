@@ -15,10 +15,10 @@ TextField {
     property bool cleanEnabled: true
 
     property color normalColor: QuiColor.FontPrimary
-    property color disableColor: QuiColor.FontCaption
+    property color disableColor: QuiColor.FontDark
     property color placeholderNormalColor: QuiColor.FontCaption
     property color placeholderFocusColor: QuiColor.FontDark
-    property color placeholderDisableColor: QuiColor.FontCaption
+    property color placeholderDisableColor: QuiColor.FontDark
 
     enabled: !disabled
     onEnabledChanged: {

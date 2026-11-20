@@ -8,12 +8,12 @@ TextField{
     property alias textColor: control.color
     property color bgColor: QuiColor.Gray110
     property color hoverLineColor: QuiColor.themeMode === QuiColor.Dark ? QuiColor.White : QuiColor.FontPrimary
-    color: QuiColor.FontPrimary
+    color: enabled ? QuiColor.FontPrimary : QuiColor.FontDark
     font: QuiFont.Body
     renderType: Text.NativeRendering
     selectionColor: QuiColor.Highlight
     selectedTextColor: color
-    placeholderTextColor: QuiColor.Gray110
+    placeholderTextColor: enabled ? QuiColor.Gray110 : QuiColor.FontDark
     selectByMouse: true
     hoverEnabled: true
     background: Item {

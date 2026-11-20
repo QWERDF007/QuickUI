@@ -7,7 +7,7 @@ TextInput{
     id:control
     property color bgColor: QuiColor.Gray110
     property alias textColor: control.color
-    color: QuiColor.FontPrimary
+    color: enabled ? QuiColor.FontPrimary : QuiColor.FontDark
     font: QuiFont.Body
     renderType: Text.NativeRendering
     selectionColor: QuiColor.Highlight

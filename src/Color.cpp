@@ -69,19 +69,20 @@ void QuiColor::applyLightPalette()
     Transparent(QColor(0, 0, 0, 0));                   // #000000
     Black(QColor(0, 0, 0, 255));                       // #000000
     White(QColor(255, 255, 255, 255));                 // #FFFFFF
-    Background(QColor(220, 220, 220, 255));            // #DCDCDC
+    Background(QColor(243, 243, 243, 255));            // #F3F3F3
     WindowBackground(QColor(220, 220, 220, 255));      // #DCDCDC
     WindowActiveBackground(QColor(243, 243, 243, 255));// #F3F3F3
-    Primary(QColor(255, 255, 255, 255));                // #FFFFFF
+    Primary(QColor(255, 255, 255, 255));               // #FFFFFF
     Border(QColor(192, 192, 192, 255));                // #C0C0C0
     ScrollBar(QColor(176, 176, 176, 255));             // #B0B0B0
     ScrollBarBackground(QColor(234, 234, 234, 255));   // #EAEAEA
     ToolTip(QColor(255, 255, 255, 255));               // #FFFFFF
     Hovered(QColor(0, 0, 0, 7));                       // 255 * 0.03
-    Highlight(QColor(0, 102, 180, 255));               // #0066B4
+    Highlight(QColor(0, 162, 232, 255));               // #00A2E8
     Error(QColor(207, 34, 46, 255));                   // #CF222E
     FontPrimary(QColor(7, 7, 7, 255));                 // #070707
     FontDark(QColor(118, 118, 118, 255));              // #767676
+    FontCaption(QColor(160, 160, 160, 255));           // #A0A0A0
     TabButton(QColor(255, 255, 255, 255));             // #FFFFFF
     Button(QColor(255, 255, 255, 255));                // #FFFFFF
     ButtonShadow(QColor(224, 224, 224, 255));          // #E0E0E0

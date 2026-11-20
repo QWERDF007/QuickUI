@@ -86,7 +86,7 @@ Item {
                 Layout.fillHeight: true
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                color: !control.enabled ? QuiColor.FontCaption : control.invalid ? QuiColor.Error : QuiColor.FontPrimary
+                color: !control.enabled ? QuiColor.FontDark : control.invalid ? QuiColor.Error : QuiColor.FontPrimary
                 font: control.font
                 selectByMouse: true
                 selectionColor: QuiColor.Highlight
@@ -161,7 +161,7 @@ Item {
             visible: input.text.length === 0 && !input.activeFocus
             text: control.placeholderText
             elide: Text.ElideRight
-            color: QuiColor.FontCaption
+            color: control.enabled ? QuiColor.FontCaption : QuiColor.FontDark
         }
     }
 

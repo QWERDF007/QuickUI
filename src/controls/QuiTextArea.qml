@@ -7,6 +7,7 @@ TextArea {
     id:control
     renderType: TextEdit.NativeRendering
     font: QuiFont.Body
-    color: QuiColor.FontPrimary
+    color: enabled ? QuiColor.FontPrimary : QuiColor.FontDark
+    placeholderTextColor: enabled ? palette.placeholderText : QuiColor.FontDark
     selectionColor: QuiColor.Highlight
 }
