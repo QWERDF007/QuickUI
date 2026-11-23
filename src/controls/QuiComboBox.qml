@@ -7,6 +7,7 @@ import quickui
 T.ComboBox {
     id: control
     signal commit(string text)
+    property int indicatorIconSize: 15
     property color normalColor: QuiColor.CardBackground
     property color hoverColor: QuiColor.ItemHover
     property color disableColor: QuiColor.ItemDisabled
@@ -52,7 +53,7 @@ T.ComboBox {
         width: 28
         iconSource: QuiFontIcon.ChevronDown
         iconColor: QuiColor.FontPrimary
-        iconSize: 15
+        iconSize: control.indicatorIconSize
         opacity: enabled ? 1 : 0.3
     }
     contentItem: T.TextField {
